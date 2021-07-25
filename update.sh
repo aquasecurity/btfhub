@@ -70,7 +70,7 @@ do
 	echo VERSION: $version
 
 	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ]
+	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
 	then
 		info "file $version.btf already exists"
 		continue
@@ -144,7 +144,7 @@ do
 	echo VERSION: $version
 
 	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ]
+	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
 	then
 		info "file $version.btf already exists"
 		continue
@@ -233,7 +233,7 @@ do
 	echo VERSION: $version
 
 	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ]
+	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
 	then
 		info "file $version.btf already exists"
 		continue
@@ -326,7 +326,7 @@ do
 	echo VERSION: $version
 
 	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ]
+	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
 	then
 		info "file $version.btf already exists"
 		continue
