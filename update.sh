@@ -209,8 +209,8 @@ esac
 
 regex="kernel-debug-debuginfo.*x86_64.rpm"
 
-mkdir -p $basedir/centos/$centosrel
-cd $basedir/centos/$centosrel || exiterr "no $centosrel dir found"
+mkdir -p $basedir/centos/$centosver
+cd $basedir/centos/$centosver || exiterr "no $centosver dir found"
 
 info "downloading $repository information"
 lynx -dump -listonly $repository | tail -n+4 > $centosrel
@@ -265,7 +265,7 @@ do
 	rm $version.vmlinux
 done
 
-rm -f $basedir/centos/$centosrel/packages
+rm -f $basedir/centos/$centosver/packages
 cd $origdir >/dev/null
 
 }
@@ -300,8 +300,8 @@ esac
 
 regex="kernel-debug-debuginfo.*x86_64.rpm"
 
-mkdir -p $basedir/fedora/$fedorarel
-cd $basedir/fedora/$fedorarel || exiterr "no $fedorarel dir found"
+mkdir -p $basedir/fedora/$fedoraver
+cd $basedir/fedora/$fedoraver || exiterr "no $fedoraver dir found"
 
 info "downloading $repository01 information"
 lynx -dump -listonly $repository01 | tail -n+4 > $fedorarel
@@ -358,7 +358,7 @@ do
 	rm $version.vmlinux
 done
 
-rm -f $basedir/fedora/$fedorarel/packages
+rm -f $basedir/fedora/$fedoraver/packages
 cd $origdir >/dev/null
 
 }
