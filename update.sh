@@ -39,7 +39,7 @@ info() {
 
 origdir=$(pwd)
 repository="http://ddebs.ubuntu.com"
-regex="linux-image-unsigned-5\.4\..*-generic-dbgsym"
+regex="linux-image-unsigned-(4|5).(15|4).0-.*-generic-dbgsym"
 
 mkdir -p $basedir/ubuntu/bionic
 cd $basedir/ubuntu/bionic || exiterr "no bionic dir found"
