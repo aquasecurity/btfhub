@@ -39,10 +39,10 @@ info() {
 
 origdir=$(pwd)
 repository="http://ddebs.ubuntu.com"
-regex="linux-image-unsigned-(4|5).(15|4).0-.*-generic-dbgsym"
+regex="linux-image-(4|5).(15|4).0-.*-(generic|aws)-dbgsym"
 
 mkdir -p $basedir/ubuntu/bionic
-cd $basedir/ubuntu/bionic || exiterr "no bionic dir found"
+cd $basedir/ubuntu/bionic/x86_64 || exiterr "no bionic dir found"
 
 wget http://ddebs.ubuntu.com/dists/bionic/main/binary-amd64/Packages -O bionic
 wget http://ddebs.ubuntu.com/dists/bionic-updates/main/binary-amd64/Packages -O bionic-updates
@@ -62,7 +62,7 @@ do
 	filepath=$(cat packages | grep -A1 $package | grep -v "^Package: " | sed 's:Filename\: ::g')
 	url=$(echo $repository/$filepath)
 	filename=$(basename $filepath)
-	version=$(echo $filename | cut -d'-' -f4,5,6)
+	version=$(echo $filename | cut -d'-' -f3,4,5)
 
 	echo URL: $url
 	echo FILEPATH: $filepath
@@ -77,32 +77,34 @@ do
 	fi
 
 	# accelerate download if possible
-	axel -4 -n 6 $url
-	mv $filename $version.ddeb
-	if [ ! -f $version.ddeb ]
-	then
-		warn "$version.ddeb could not be downloaded"
-		continue
+	if [ ! -f $version.ddeb ]; then
+		axel -4 -n 8 $url
+		mv $filename $version.ddeb
+		if [ ! -f $version.ddeb ]
+		then
+			warn "$version.ddeb could not be downloaded"
+			continue
+		fi
 	fi
 
 	# extract vmlinux file from ddeb package
 	dpkg --fsys-tarfile $version.ddeb | tar xvf - ./usr/lib/debug/boot/vmlinux-$version
 	mv ./usr/lib/debug/boot/vmlinux-$version ./$version.vmlinux
-	rm -rf ${basedir}/ubuntu/bionic/usr
+	rm -rf ${basedir}/ubuntu/bionic/x86_64/usr
 
 	# generate BTF raw file from DWARF data
 	pahole -j $version.btf $version.vmlinux
-	pahole $version.btf > $version.txt
+	# pahole $version.btf > $version.txt
 	tar cvfJ ./$version.btf.tar.xz $version.btf
 
 	rm $version.ddeb
 	rm $version.btf
-	rm $version.txt
+	# rm $version.txt
 	rm $version.vmlinux
 
 done
 
-rm -f $basedir/ubuntu/bionic/packages
+rm -f $basedir/ubuntu/bionic/x86_64/packages
 cd $origdir >/dev/null
 
 }
@@ -113,10 +115,10 @@ cd $origdir >/dev/null
 
 origdir=$(pwd)
 repository="http://ddebs.ubuntu.com"
-regex="linux-image-unsigned-5\.(4|8)\..*-generic-dbgsym"
+regex="linux-image-5\.(4|8|11)\..*-(generic|aws)-dbgsym"
 
 mkdir -p $basedir/ubuntu/focal
-cd $basedir/ubuntu/focal || exiterr "no focal dir found"
+cd $basedir/ubuntu/focal/x86_64 || exiterr "no focal dir found"
 
 wget http://ddebs.ubuntu.com/dists/focal/main/binary-amd64/Packages -O focal
 wget http://ddebs.ubuntu.com/dists/focal-updates/main/binary-amd64/Packages -O focal-updates
@@ -136,7 +138,7 @@ do
 	filepath=$(cat packages | grep -A1 $package | grep -v "^Package: " | sed 's:Filename\: ::g')
 	url=$(echo $repository/$filepath)
 	filename=$(basename $filepath)
-	version=$(echo $filename | cut -d'-' -f4,5,6)
+	version=$(echo $filename | sed 's:linux-image-\(.*\)-dbgsym.*:\1:g')
 
 	echo URL: $url
 	echo FILEPATH: $filepath
@@ -151,32 +153,34 @@ do
 	fi
 
 	# accelerate download if possible
-	axel -4 -n 6 $url
-	mv $filename $version.ddeb
-	if [ ! -f $version.ddeb ]
-	then
-		warn "$version.ddeb could not be downloaded"
-		continue
+	if [ ! -f $version.ddeb ]; then
+		axel -4 -n 8 $url
+		mv $filename $version.ddeb
+		if [ ! -f $version.ddeb ]
+		then
+			warn "$version.ddeb could not be downloaded"
+			continue
+		fi
 	fi
 
 	# extract vmlinux file from ddeb package
 	dpkg --fsys-tarfile $version.ddeb | tar xvf - ./usr/lib/debug/boot/vmlinux-$version
 	mv ./usr/lib/debug/boot/vmlinux-$version ./$version.vmlinux
-	rm -rf ${basedir}/ubuntu/focal/usr
+	rm -rf ${basedir}/ubuntu/focal/x86_64/usr
 
 	# generate BTF raw file from DWARF data
 	pahole -j $version.btf $version.vmlinux
-	pahole $version.btf > $version.txt
+	# pahole $version.btf > $version.txt
 	tar cvfJ ./$version.btf.tar.xz $version.btf
 
 	rm $version.ddeb
 	rm $version.btf
-	rm $version.txt
+	# rm $version.txt
 	rm $version.vmlinux
 
 done
 
-rm -f $basedir/ubuntu/focal/packages
+rm -f $basedir/ubuntu/focal/x86_64/packages
 cd $origdir >/dev/null
 
 }
@@ -210,7 +214,7 @@ esac
 regex="kernel-debug-debuginfo.*x86_64.rpm"
 
 mkdir -p $basedir/centos/$centosver
-cd $basedir/centos/$centosver || exiterr "no $centosver dir found"
+cd $basedir/centos/$centosver/x86_64 || exiterr "no $centosver dir found"
 
 info "downloading $repository information"
 lynx -dump -listonly $repository | tail -n+4 > $centosrel
@@ -226,7 +230,7 @@ do
 	url=$line
 	dirname=$(dirname $line)
 	filename=$(basename $line)
-	version=$(echo $filename | cut -d'-' -f4,5,6,7,8,9 | sed 's:.x86_64.rpm::g')
+	version=$(echo $filename | sed 's:kernel-debug-debuginfo-\(.*\).rpm:\1:g')
 
 	echo URL: $url
 	echo FILENAME: $filename
@@ -256,16 +260,16 @@ do
 	# generate BTF raw file from DWARF data
 	echo "INFO: generating BTF file: $version.btf"
 	pahole -j $version.btf $version.vmlinux
-	pahole $version.btf > $version.txt
+	# pahole $version.btf > $version.txt
 	tar cvfJ ./$version.btf.tar.xz $version.btf
 
 	rm $version.rpm
 	rm $version.btf
-	rm $version.txt
+	# rm $version.txt
 	rm $version.vmlinux
 done
 
-rm -f $basedir/centos/$centosver/packages
+rm -f $basedir/centos/$centosver/x86_64/packages
 cd $origdir >/dev/null
 
 }
@@ -301,7 +305,7 @@ esac
 regex="kernel-debug-debuginfo.*x86_64.rpm"
 
 mkdir -p $basedir/fedora/$fedoraver
-cd $basedir/fedora/$fedoraver || exiterr "no $fedoraver dir found"
+cd $basedir/fedora/$fedoraver/x86_64 || exiterr "no $fedoraver dir found"
 
 info "downloading $repository01 information"
 lynx -dump -listonly $repository01 | tail -n+4 > $fedorarel
@@ -319,7 +323,7 @@ do
 	url=$line
 	dirname=$(dirname $line)
 	filename=$(basename $line)
-	version=$(echo $filename | cut -d'-' -f4,5,6,7,8,9 | sed 's:.x86_64.rpm::g')
+	version=$(echo $filename | sed 's:kernel-debug-debuginfo-\(.*\).rpm:\1:g')
 
 	echo URL: $url
 	echo FILENAME: $filename
@@ -349,16 +353,16 @@ do
 	# generate BTF raw file from DWARF data
 	echo "INFO: generating BTF file: $version.btf"
 	pahole -j $version.btf $version.vmlinux
-	pahole $version.btf > $version.txt
+	# pahole $version.btf > $version.txt
 	tar cvfJ ./$version.btf.tar.xz $version.btf
 
 	rm $version.rpm
 	rm $version.btf
-	rm $version.txt
+	# rm $version.txt
 	rm $version.vmlinux
 done
 
-rm -f $basedir/fedora/$fedoraver/packages
+rm -f $basedir/fedora/$fedoraver/x86_64/packages
 cd $origdir >/dev/null
 
 }
