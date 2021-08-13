@@ -211,7 +211,7 @@ case $centosver in
   exiterr "only centos7 and centos8 are supported"
 esac
 
-regex="kernel-debug-debuginfo.*x86_64.rpm"
+regex="kernel-debuginfo-[0-9].*x86_64.rpm"
 
 mkdir -p $basedir/centos/$centosver
 cd $basedir/centos/$centosver/x86_64 || exiterr "no $centosver dir found"
@@ -230,7 +230,7 @@ do
 	url=$line
 	dirname=$(dirname $line)
 	filename=$(basename $line)
-	version=$(echo $filename | sed 's:kernel-debug-debuginfo-\(.*\).rpm:\1:g')
+	version=$(echo $filename | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
 
 	echo URL: $url
 	echo FILENAME: $filename
@@ -278,7 +278,7 @@ cd $origdir >/dev/null
 ### 3. Fedora
 ###
 
-### fedora29, fedora30, fedora31 and fedora32
+### fedora29-34
 
 [[ "$1" == fedora* ]] && {
 
@@ -293,16 +293,17 @@ case $fedoraver in
   repository01="https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/$fedoraver/Everything/x86_64/debug/tree/Packages/k/"
   repository02="https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/$fedoraver/Everything/x86_64/debug/Packages/k/"
   ;;
-32)
-  # intermediate ? there is no updates url available and archives.fedoraproject.org does not have fedora32 available (yet ?)
-  repository01="https://dl.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/debug/tree/Packages/k/"
-  repository02="https://dl.fedoraproject.org/pub/fedora/linux/releases/32/Everything/x86_64/debug/tree/Packages/k/"
+32 | 33 | 34)
+  repository01="https://dl.fedoraproject.org/pub/fedora/linux/releases/$fedoraver/Everything/x86_64/debug/tree/Packages/k/"
+  repository02="https://dl.fedoraproject.org/pub/fedora/linux/releases/$fedoraver/Everything/x86_64/debug/tree/Packages/k/"
   ;;
+
+
 *)
-  exiterr "only fedora29, fedora30, fedora31 and fedora32 are supported"
+  exiterr "only fedora29-34 are supported"
 esac
 
-regex="kernel-debug-debuginfo.*x86_64.rpm"
+regex="kernel-debuginfo-[0-9].*x86_64.rpm"
 
 mkdir -p $basedir/fedora/$fedoraver
 cd $basedir/fedora/$fedoraver/x86_64 || exiterr "no $fedoraver dir found"
@@ -323,7 +324,7 @@ do
 	url=$line
 	dirname=$(dirname $line)
 	filename=$(basename $line)
-	version=$(echo $filename | sed 's:kernel-debug-debuginfo-\(.*\).rpm:\1:g')
+	version=$(echo $filename | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
 
 	echo URL: $url
 	echo FILENAME: $filename
