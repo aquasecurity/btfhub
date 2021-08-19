@@ -39,7 +39,7 @@ info() {
 
 origdir=$(pwd)
 repository="http://ddebs.ubuntu.com"
-regex="linux-image-(4|5).(15|4).0-.*-(generic|aws)-dbgsym"
+regex="(linux-image-unsigned-(4|5).(15|4).0-.*-generic-dbgsym|linux-image-(4|5).(15|4).0-.*-aws-dbgsym)"
 
 mkdir -p $basedir/ubuntu/bionic
 cd $basedir/ubuntu/bionic/x86_64 || exiterr "no bionic dir found"
@@ -62,7 +62,7 @@ do
 	filepath=$(cat packages | grep -A1 $package | grep -v "^Package: " | sed 's:Filename\: ::g')
 	url=$(echo $repository/$filepath)
 	filename=$(basename $filepath)
-	version=$(echo $filename | cut -d'-' -f3,4,5)
+	version=$(echo $filename | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
 
 	echo URL: $url
 	echo FILEPATH: $filepath
@@ -115,7 +115,7 @@ cd $origdir >/dev/null
 
 origdir=$(pwd)
 repository="http://ddebs.ubuntu.com"
-regex="linux-image-5\.(4|8|11)\..*-(generic|aws)-dbgsym"
+regex="(linux-image-unsigned-(4|5).(15|4).0-.*-generic-dbgsym|linux-image-(4|5).(15|4).0-.*-aws-dbgsym)"
 
 mkdir -p $basedir/ubuntu/focal
 cd $basedir/ubuntu/focal/x86_64 || exiterr "no focal dir found"
@@ -138,7 +138,7 @@ do
 	filepath=$(cat packages | grep -A1 $package | grep -v "^Package: " | sed 's:Filename\: ::g')
 	url=$(echo $repository/$filepath)
 	filename=$(basename $filepath)
-	version=$(echo $filename | sed 's:linux-image-\(.*\)-dbgsym.*:\1:g')
+	version=$(echo $filename | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
 
 	echo URL: $url
 	echo FILEPATH: $filepath
