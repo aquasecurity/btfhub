@@ -2,13 +2,13 @@
 
 ##
 ## This script IS SUPPOSED to be a big monolithic script.
-## Thats it: The tree should focus in arranging BTF data.
+## That's it: The tree should focus in arranging BTF data.
 ##
 
 ## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}]
 
-basedir=$(dirname $0)
-if [ "$basedir" == "." ]; then
+basedir=$(dirname "${0}")
+if [ "${basedir}" == "." ]; then
 	basedir=$(pwd)
 fi
 
@@ -17,262 +17,198 @@ fi
 ##
 
 exiterr() {
-	echo "ERROR: $@"
+	echo ERROR: "${@}"
 	exit 1
 }
 
 warn() {
-	echo "WARN: $@"
+	echo WARN: "${@}"
 }
 
 info() {
-	echo "INFO: $@"
+	echo INFO: "${@}"
 }
 
 ###
-### 1. UBUNTU
+### 1. UBUNTU (bionic, focal)
 ###
 
-### bionic (5.4 hwe kernels)
+for ubuntuver in bionic focal; do
 
-[[ "$1" == "bionic" ]] && {
+    if [ "${1}" != "${ubuntuver}" ]; then
+        continue
+    fi
 
-origdir=$(pwd)
-repository="http://ddebs.ubuntu.com"
-regex="(linux-image-unsigned-(4|5).(15|4).0-.*-generic-dbgsym|linux-image-(4|5).(15|4).0-.*-aws-dbgsym)"
+    case "${ubuntuver}" in
+    "bionic")
+        regex="(linux-image-unsigned-(4.15.0|5.4.0)-.*-generic-dbgsym|linux-image-(4.15.0|5.4.0)-.*-(aws)-dbgsym)"
+        ;;
+    "focal")
+        regex="(linux-image-unsigned-(5.4.0|5.8.0|5.11.0)-.*-generic-dbgsym|linux-image-(5.4.0|5.8.0|5.11.0)-.*-(aws)-dbgsym)"
+        ;;
+    *)
+        continue
+        ;;
+    esac
 
-mkdir -p $basedir/ubuntu/bionic
-cd $basedir/ubuntu/bionic/x86_64 || exiterr "no bionic dir found"
+    origdir=$(pwd)
+    repository="http://ddebs.ubuntu.com"
 
-wget http://ddebs.ubuntu.com/dists/bionic/main/binary-amd64/Packages -O bionic
-wget http://ddebs.ubuntu.com/dists/bionic-updates/main/binary-amd64/Packages -O bionic-updates
+    mkdir -p "${basedir}/ubuntu/${ubuntuver}"
+    cd "${basedir}/ubuntu/${ubuntuver}/x86_64" || exiterr "no ${ubuntuver} dir found"
 
-[ ! -f bionic ] && exiterr "no bionic packages file found"
-[ ! -f bionic-updates ] && exiterr "no bionic-updates packages file found"
+    wget http://ddebs.ubuntu.com/dists/${ubuntuver}/main/binary-amd64/Packages -O ${ubuntuver}
+    wget http://ddebs.ubuntu.com/dists/${ubuntuver}-updates/main/binary-amd64/Packages -O ${ubuntuver}-updates
 
-cat bionic | grep -E '^(Package|Filename):' | grep --no-group-separator -A1 -E "^Package: $regex" > temp
-cat bionic-updates | grep -E '^(Package|Filename):' | grep --no-group-separator -A1 -E "Package: $regex" >> temp
-rm bionic; rm bionic-updates; mv temp packages
+    [ ! -f ${ubuntuver} ] && exiterr "no ${ubuntuver} packages file found"
+    [ ! -f ${ubuntuver}-updates ] && exiterr "no ${ubuntuver}-updates packages file found"
 
-# for kernel debug symbols packages in ubuntu bionic repository
-for package in $(cat packages | grep Package: | sed 's:Package\: ::g' | sort)
-do
+    grep -E '^(Package|Filename):' ${ubuntuver} | grep --no-group-separator -A1 -E "^Package: ${regex}" > temp
+    grep -E '^(Package|Filename):' ${ubuntuver}-updates | grep --no-group-separator -A1 -E "Package: ${regex}" >> temp
+    rm ${ubuntuver}; rm ${ubuntuver}-updates; mv temp packages
 
-	# get filename and url to download file from
-	filepath=$(cat packages | grep -A1 $package | grep -v "^Package: " | sed 's:Filename\: ::g')
-	url=$(echo $repository/$filepath)
-	filename=$(basename $filepath)
-	version=$(echo $filename | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
+    grep "Package:" packages | sed 's:Package\: ::g' | sort | while read -r package; do
 
-	echo URL: $url
-	echo FILEPATH: $filepath
-	echo FILENAME: $filename
-	echo VERSION: $version
+	    filepath=$(grep -A1 "${package}" packages | grep -v "^Package: " | sed 's:Filename\: ::g')
+	    url="${repository}/${filepath}"
+	    filename=$(basename "${filepath}")
+	    version=$(echo "${filename}" | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
 
-	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
-	then
-		info "file $version.btf already exists"
-		continue
-	fi
+	    echo URL: "${url}"
+	    echo FILEPATH: "${filepath}"
+	    echo FILENAME: "${filename}"
+	    echo VERSION: "${version}"
 
-	# accelerate download if possible
-	if [ ! -f $version.ddeb ]; then
-		axel -4 -n 8 $url
-		mv $filename $version.ddeb
-		if [ ! -f $version.ddeb ]
-		then
-			warn "$version.ddeb could not be downloaded"
-			continue
-		fi
-	fi
+	    if [ -f "${version}.btf.tar.xz" ]
+	    then
+	    	info "file ${version}.btf already exists"
+	    	continue
+	    fi
 
-	# extract vmlinux file from ddeb package
-	dpkg --fsys-tarfile $version.ddeb | tar xvf - ./usr/lib/debug/boot/vmlinux-$version
-	mv ./usr/lib/debug/boot/vmlinux-$version ./$version.vmlinux
-	rm -rf ${basedir}/ubuntu/bionic/x86_64/usr
+	    if [ ! -f "${version}.ddeb" ]; then
+	    	axel -4 -n 8 "${url}"
+	    	mv "${filename}" "${version}.ddeb"
+	    	if [ ! -f "${version}.ddeb" ]
+	    	then
+	    		warn "${version}.ddeb could not be downloaded"
+	    		continue
+	    	fi
+	    fi
 
-	# generate BTF raw file from DWARF data
-	pahole -j $version.btf $version.vmlinux
-	# pahole $version.btf > $version.txt
-	tar cvfJ ./$version.btf.tar.xz $version.btf
+	    # extract vmlinux file from ddeb package
+	    dpkg --fsys-tarfile "${version}.ddeb" | tar xvf - "./usr/lib/debug/boot/vmlinux-${version}" || \
+	    {
+	        warn "could not deal with ${version}, cleaning and moving on..."
+	        rm -rf "${basedir}/ubuntu/${ubuntuver}/x86_64/usr"
+	        rm -rf "${version}.ddeb"
+	        continue
+	    }
 
-	rm $version.ddeb
-	rm $version.btf
-	# rm $version.txt
-	rm $version.vmlinux
+	    mv "./usr/lib/debug/boot/vmlinux-${version}" "./${version}.vmlinux" || \
+	    {
+	        warn "could not rename vmlinux ${version}, cleaning and moving on..."
+	        rm -rf "${basedir}/ubuntu/${ubuntuver}/x86_64/usr"
+	        rm -rf "${version}.ddeb"
+	        continue
+
+        }
+
+	    rm -rf "${basedir}/ubuntu/${ubuntuver}/x86_64/usr"
+
+	    pahole -j "${version}.btf" "${version}.vmlinux"
+	    # pahole "./${version}.btf" > "${version}.txt"
+	    tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+
+        rm "${version}.ddeb"
+	    rm "${version}.btf"
+        # rm "${version}.txt"
+	    rm "${version}.vmlinux"
+
+    done
+
+    rm -f "${basedir}/ubuntu/${ubuntuver}/x86_64/packages"
+    cd "${origdir}" >/dev/null || exit
 
 done
 
-rm -f $basedir/ubuntu/bionic/x86_64/packages
-cd $origdir >/dev/null
-
-}
-
-### focal (5.4 and 5.8 hwe kernels)
-
-[[ "$1" == "focal" ]] && {
-
-origdir=$(pwd)
-repository="http://ddebs.ubuntu.com"
-regex="(linux-image-unsigned-(4|5).(15|4).0-.*-generic-dbgsym|linux-image-(4|5).(15|4).0-.*-aws-dbgsym)"
-
-mkdir -p $basedir/ubuntu/focal
-cd $basedir/ubuntu/focal/x86_64 || exiterr "no focal dir found"
-
-wget http://ddebs.ubuntu.com/dists/focal/main/binary-amd64/Packages -O focal
-wget http://ddebs.ubuntu.com/dists/focal-updates/main/binary-amd64/Packages -O focal-updates
-
-[ ! -f focal ] && exiterr "no focal packages file found"
-[ ! -f focal-updates ] && exiterr "no focal-updates packages file found"
-
-cat focal | grep -E '^(Package|Filename):' | grep --no-group-separator -A1 -E "^Package: $regex" > temp
-cat focal-updates | grep -E '^(Package|Filename):' | grep --no-group-separator -A1 -E "Package: $regex" >> temp
-rm focal; rm focal-updates; mv temp packages
-
-# for kernel debug symbols packages in ubuntu focal repository
-for package in $(cat packages | grep Package: | sed 's:Package\: ::g' | sort)
-do
-
-	# get filename and url to download file from
-	filepath=$(cat packages | grep -A1 $package | grep -v "^Package: " | sed 's:Filename\: ::g')
-	url=$(echo $repository/$filepath)
-	filename=$(basename $filepath)
-	version=$(echo $filename | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
-
-	echo URL: $url
-	echo FILEPATH: $filepath
-	echo FILENAME: $filename
-	echo VERSION: $version
-
-	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
-	then
-		info "file $version.btf already exists"
-		continue
-	fi
-
-	# accelerate download if possible
-	if [ ! -f $version.ddeb ]; then
-		axel -4 -n 8 $url
-		mv $filename $version.ddeb
-		if [ ! -f $version.ddeb ]
-		then
-			warn "$version.ddeb could not be downloaded"
-			continue
-		fi
-	fi
-
-	# extract vmlinux file from ddeb package
-	dpkg --fsys-tarfile $version.ddeb | tar xvf - ./usr/lib/debug/boot/vmlinux-$version
-	mv ./usr/lib/debug/boot/vmlinux-$version ./$version.vmlinux
-	rm -rf ${basedir}/ubuntu/focal/x86_64/usr
-
-	# generate BTF raw file from DWARF data
-	pahole -j $version.btf $version.vmlinux
-	# pahole $version.btf > $version.txt
-	tar cvfJ ./$version.btf.tar.xz $version.btf
-
-	rm $version.ddeb
-	rm $version.btf
-	# rm $version.txt
-	rm $version.vmlinux
-
-done
-
-rm -f $basedir/ubuntu/focal/x86_64/packages
-cd $origdir >/dev/null
-
-}
-
 ###
-### 2. CENTOS
+### 2. CENTOS (centos7, centos8)
 ###
 
-### centos7 and centos8
+for centosver in centos7 centos8; do
 
-[[ "$1" == centos* ]] && {
+    if [ "${1}" != "${centosver}" ]; then
+        continue
+    fi
 
-centosrel=$1
-centosver=${1/centos/}
-origdir=$(pwd)
+    centosrel=$1
+    origdir=$(pwd)
 
-case $centosver in
+    case "${centosver}" in
+    "centos7")
+      repository="http://mirror.facebook.net/centos-debuginfo/7/x86_64/"
+      ;;
+    "centos8")
+      repository="http://mirror.facebook.net/centos-debuginfo/8/x86_64/Packages/"
+      ;;
+    esac
 
-7)
-  # end of life version
-  repository="http://mirror.facebook.net/centos-debuginfo/7/x86_64/"
-  ;;
-8)
-  # current version
-  repository="http://mirror.facebook.net/centos-debuginfo/8/x86_64/Packages/"
-  ;;
-*)
-  exiterr "only centos7 and centos8 are supported"
-esac
+    regex="kernel-debuginfo-[0-9].*x86_64.rpm"
 
-regex="kernel-debuginfo-[0-9].*x86_64.rpm"
+    mkdir -p "${basedir}/centos/${centosver/centos/}"
+    cd "${basedir}/centos/${centosver/centos/}/x86_64" || exiterr "no ${centosver} dir found"
 
-mkdir -p $basedir/centos/$centosver
-cd $basedir/centos/$centosver/x86_64 || exiterr "no $centosver dir found"
+    info "downloading ${repository} information"
+    lynx -dump -listonly ${repository} | tail -n+4 > "${centosrel}"
+    [[ ! -f ${centosrel} ]] && exiterr "no ${centosrel} packages file found"
+    grep -E "${regex}" "${centosrel}" | awk '{print $2}' >temp
+    mv temp packages
+    rm "${centosrel}"
 
-info "downloading $repository information"
-lynx -dump -listonly $repository | tail -n+4 > $centosrel
-[[ ! -f $centosrel ]] && exiterr "no $centosrel packages file found"
-cat $centosrel | grep -E $regex | awk '{print $2}' > temp
-mv temp packages
-rm $centosrel
+    sort packages | while read -r line; do
 
-# for kernel debug symbols packages in $centosrel repository
-for line in $(cat packages | sort)
-do
-	# get filename and url to download file from
-	url=$line
-	dirname=$(dirname $line)
-	filename=$(basename $line)
-	version=$(echo $filename | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
+        url=${line}
+        filename=$(basename "${line}")
+        # shellcheck disable=SC2001
+        version=$(echo "${filename}" | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
 
-	echo URL: $url
-	echo FILENAME: $filename
-	echo VERSION: $version
+        echo URL: "${url}"
+        echo FILENAME: "${filename}"
+        echo VERSION: "${version}"
 
-	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
-	then
-		info "file $version.btf already exists"
-		continue
-	fi
+        if [ -f "${version}.btf.tar.xz" ]; then
+          info "file ${version}.btf already exists"
+          continue
+        fi
 
-	# accelerate download if possible
-	axel -4 -n 8 $url
-	mv $filename $version.rpm
-	if [ ! -f $version.rpm ]
-	then
-		warn "$version.rpm could not be downloaded"
-		continue
-	fi
+        axel -4 -n 8 "${url}"
+        mv "${filename}" "${version}.rpm"
+        if [ ! -f "${version}.rpm" ]; then
+          warn "${version}.rpm could not be downloaded"
+          continue
+        fi
 
-	# extract vmlinux file from rpm package
-	vmlinux=".$(rpmquery -qlp $version.rpm 2>&1 | grep vmlinux)"
-	echo "INFO: extracting vmlinux from: $version.rpm"
-	rpm2cpio $version.rpm | cpio --to-stdout -i $vmlinux > ./$version.vmlinux
+        vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
+        echo "INFO: extracting vmlinux from: ${version}.rpm"
+        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux"
 
-	# generate BTF raw file from DWARF data
-	echo "INFO: generating BTF file: $version.btf"
-	pahole -j $version.btf $version.vmlinux
-	# pahole $version.btf > $version.txt
-	tar cvfJ ./$version.btf.tar.xz $version.btf
+        # generate BTF raw file from DWARF data
+        echo "INFO: generating BTF file: ${version}.btf"
+        pahole -j "${version}.btf" "${version}.vmlinux"
+        # pahole "${version}.btf" > "${version}.txt"
+        tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
 
-	rm $version.rpm
-	rm $version.btf
-	# rm $version.txt
-	rm $version.vmlinux
+        rm "${version}.rpm"
+        rm "${version}.btf"
+        # rm "${version}.txt"
+        rm "${version}.vmlinux"
+
+    done
+
+  rm -f "${basedir}/centos/${centosver/centos/}/x86_64/packages"
+  cd "${origdir}" >/dev/null || exit
+
 done
-
-rm -f $basedir/centos/$centosver/x86_64/packages
-cd $origdir >/dev/null
-
-}
 
 ###
 ### 3. Fedora
@@ -280,92 +216,84 @@ cd $origdir >/dev/null
 
 ### fedora29-34
 
-[[ "$1" == fedora* ]] && {
+for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
 
-fedorarel=$1
-fedoraver=${1/fedora/}
-origdir=$(pwd)
+    if [ "${1}" != "${fedoraver}" ]; then
+        continue
+    fi
 
-case $fedoraver in
+    origdir=$(pwd)
 
-29 | 30 | 31)
-  # end of life versions
-  repository01="https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/$fedoraver/Everything/x86_64/debug/tree/Packages/k/"
-  repository02="https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/$fedoraver/Everything/x86_64/debug/Packages/k/"
-  ;;
-32 | 33 | 34)
-  repository01="https://dl.fedoraproject.org/pub/fedora/linux/releases/$fedoraver/Everything/x86_64/debug/tree/Packages/k/"
-  repository02="https://dl.fedoraproject.org/pub/fedora/linux/releases/$fedoraver/Everything/x86_64/debug/tree/Packages/k/"
-  ;;
+    case "${fedoraver}" in
 
+    "fedora29" | "fedora30" | "fedora31")
+      repository01=https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/"${fedoraver/fedora/}/Everything/x86_64/debug/tree/Packages/k/"
+      repository02=https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/"${fedoraver/fedora/}/Everything/x86_64/debug/Packages/k/"
+      ;;
+    "fedora32" | "fedora33" | "fedora34")
+      repository01=https://dl.fedoraproject.org/pub/fedora/linux/releases/"${fedoraver}/Everything/x86_64/debug/tree/Packages/k/"
+      repository02=https://dl.fedoraproject.org/pub/fedora/linux/releases/"${fedoraver}/Everything/x86_64/debug/tree/Packages/k/"
+      ;;
+    esac
 
-*)
-  exiterr "only fedora29-34 are supported"
-esac
+    regex="kernel-debuginfo-[0-9].*x86_64.rpm"
 
-regex="kernel-debuginfo-[0-9].*x86_64.rpm"
+    mkdir -p "${basedir}/fedora/${fedoraver/fedora/}"
+    cd "${basedir}/fedora/${fedoraver/fedora/}/x86_64" || exiterr "no ${fedoraver} dir found"
 
-mkdir -p $basedir/fedora/$fedoraver
-cd $basedir/fedora/$fedoraver/x86_64 || exiterr "no $fedoraver dir found"
+    info "downloading ${repository01} information"
+    lynx -dump -listonly ${repository01} | tail -n+4 > ${fedoraver}
+    info "downloading ${repository02} information"
+    lynx -dump -listonly ${repository02} | tail -n+4 >> ${fedoraver}
 
-info "downloading $repository01 information"
-lynx -dump -listonly $repository01 | tail -n+4 > $fedorarel
-info "downloading $repository02 information"
-lynx -dump -listonly $repository02 | tail -n+4 >> $fedorarel
-[[ ! -f $fedorarel ]] && exiterr "no $fedorarel packages file found"
-cat $fedorarel | grep -E $regex | awk '{print $2}' > temp
-mv temp packages
-rm $fedorarel
+    [[ ! -f ${fedoraver} ]] && exiterr "no ${fedoraver} packages file found"
 
-# for kernel debug symbols packages in $fedorarel repository
-for line in $(cat packages | sort)
-do
-	# get filename and url to download file from
-	url=$line
-	dirname=$(dirname $line)
-	filename=$(basename $line)
-	version=$(echo $filename | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
+    grep -E "${regex}" ${fedoraver} | awk '{print $2}' > temp
+    mv temp packages ; rm ${fedoraver}
 
-	echo URL: $url
-	echo FILENAME: $filename
-	echo VERSION: $version
+    sort packages | while read -r line; do
 
-	# do not download dbg package again (if BTF file already exists)
-	if [ -f $version.btf.tar.xz ] || [ -f ./nobpf/$version.btf.tar.xz ]
-	then
-		info "file $version.btf already exists"
-		continue
-	fi
+        url=${line}
+        filename=$(basename "${line}")
+        # shellcheck disable=SC2001
+        version=$(echo "${filename}" | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
 
-	# accelerate download if possible
-	axel -4 -n 8 $url
-	mv $filename $version.rpm
-	if [ ! -f $version.rpm ]
-	then
-		warn "$version.rpm could not be downloaded"
-		continue
-	fi
+        echo URL: "${url}"
+        echo FILENAME: "${filename}"
+        echo VERSION: "${version}"
 
-	# extract vmlinux file from rpm package
-	vmlinux=".$(rpmquery -qlp $version.rpm 2>&1 | grep vmlinux)"
-	echo "INFO: extracting vmlinux from: $version.rpm"
-	rpm2cpio $version.rpm | cpio --to-stdout -i $vmlinux > ./$version.vmlinux
+        if [ -f "${version}.btf.tar.xz" ]; then
+          info "file ${version}.btf already exists"
+          continue
+        fi
 
-	# generate BTF raw file from DWARF data
-	echo "INFO: generating BTF file: $version.btf"
-	pahole -j $version.btf $version.vmlinux
-	# pahole $version.btf > $version.txt
-	tar cvfJ ./$version.btf.tar.xz $version.btf
+        axel -4 -n 8 "${url}"
+        mv "${filename}" "${version}.rpm"
+        if [ ! -f "${version}.rpm" ]; then
+          warn "${version}.rpm could not be downloaded"
+          continue
+        fi
 
-	rm $version.rpm
-	rm $version.btf
-	# rm $version.txt
-	rm $version.vmlinux
+        vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
+        echo "INFO: extracting vmlinux from: ${version}.rpm"
+        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux"
+
+        # generate BTF raw file from DWARF data
+        echo "INFO: generating BTF file: ${version}.btf"
+        pahole -j "${version}.btf" "${version}.vmlinux"
+        # pahole "${version}.btf" > "${version}.txt"
+        tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+
+        rm "${version}.rpm"
+        rm "${version}.btf"
+        # rm "${version}.txt"
+        rm "${version}.vmlinux"
+
+    done
+
+    rm -f "${basedir}/fedora/${fedoraver/fedora/}/x86_64/packages"
+    cd "${origdir}" >/dev/null || exit
+
 done
-
-rm -f $basedir/fedora/$fedoraver/x86_64/packages
-cd $origdir >/dev/null
-
-}
 
 exit 0
