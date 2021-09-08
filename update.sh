@@ -187,10 +187,17 @@ for centosver in centos7 centos8; do
           warn "${version}.rpm could not be downloaded"
           continue
         fi
-
+        
         vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
         echo "INFO: extracting vmlinux from: ${version}.rpm"
-        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux"
+        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
+        {
+            warn "could not deal with ${version}, cleaning and moving on..."
+	        rm -rf "${basedir}/centos/${centosver/centos/}/x86_64/usr"
+	        rm -rf "${version}.rpm"
+	        rm -rf "${version}.vmlinux"
+	        continue
+        }
 
         # generate BTF raw file from DWARF data
         echo "INFO: generating BTF file: ${version}.btf"
@@ -276,7 +283,14 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
 
         vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
         echo "INFO: extracting vmlinux from: ${version}.rpm"
-        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux"
+        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
+        {
+            warn "could not deal with ${version}, cleaning and moving on..."
+	        rm -rf "${basedir}/centos/${fedoraver/fedora/}/x86_64/usr"
+	        rm -rf "${version}.rpm"
+	        rm -rf "${version}.vmlinux"
+	        continue
+        }
 
         # generate BTF raw file from DWARF data
         echo "INFO: generating BTF file: ${version}.btf"
