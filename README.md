@@ -80,19 +80,9 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 * BTF - kernel is compiled with DEBUG_INFO_BTF (/sys/kernel/bpf/vmlinux avail)
 * HUB - there is a 1:1 kernel <-> BTF file available in this hub
 
-### [Alma](https://en.wikipedia.org/wiki/AlmaLinux)
-
-| Alma     | RHEL | Release Date | RHEL Date  | Kernel      | BPF | BTF | HUB |
-|----------|------|--------------|------------|-------------|-----|-----|-----|
-| 8.3      | 8.3  | 2021-03-30   | 2020-11-03 | 4.18.0-240  |  Y  |  Y  |  -  |
-| 8.4      | 8.4  | 2021-05-26   | 2021-05-18 | 4.18.0-305  |  Y  |  Y  |  -  |
-| ...      | ...  | ...          | ...        | ...         |  Y  |  Y  |  -  |
-
-> **Note**: **ALL** Alma releases have BPF & BTF support enabled!
-
 ### [CentOS](https://en.wikipedia.org/wiki/CentOS)
 
-##### CentOS 7 (and 7 Plus)
+#### CentOS 7
 
 | Centos   | RHEL | Release Date | RHEL Date  | Kernel      | BPF | BTF | HUB |
 |----------|------|--------------|------------|-------------|-----|-----|-----|
@@ -113,7 +103,7 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 >
 > Check out eBPF features your code use [HERE](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md)
 
-##### CentOS 8 (and 8 Plus)
+#### CentOS 8
 
 | Centos   | RHEL | Release Date | RHEL Date  | Kernel      | BPF | BTF | HUB |
 |----------|------|--------------|------------|-------------|-----|-----|-----|
@@ -126,7 +116,7 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 
 > **Note**: **ALL** latest CentOS 8 releases have BPF & BTF support enabled!
 
-##### CentOS Stream 8
+#### CentOS Stream 8
 
 | Stream   | RHEL | Release Date | RHEL Date  | Kernel      | BPF | BTF | HUB |
 |----------|------|--------------|------------|-------------|-----|-----|-----|
@@ -134,6 +124,20 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 | 8.4      | 8.4  | 2021-01-14   | 2020-11-03 | 4.18.0-240  |  Y  |  Y  |  -  |
 
 > **Note**: **ALL** CentOS Stream 8 releases have BPF & BTF support enabled
+
+----
+
+### [Alma](https://en.wikipedia.org/wiki/AlmaLinux)
+
+| Alma     | RHEL | Release Date | RHEL Date  | Kernel      | BPF | BTF | HUB |
+|----------|------|--------------|------------|-------------|-----|-----|-----|
+| 8.3      | 8.3  | 2021-03-30   | 2020-11-03 | 4.18.0-240  |  Y  |  Y  |  -  |
+| 8.4      | 8.4  | 2021-05-26   | 2021-05-18 | 4.18.0-305  |  Y  |  Y  |  -  |
+| ...      | ...  | ...          | ...        | ...         |  Y  |  Y  |  -  |
+
+> **Note**: **ALL** Alma releases have BPF & BTF support enabled!
+
+----
 
 ### [Fedora](https://en.wikipedia.org/wiki/Fedora_version_history)
 
@@ -148,6 +152,8 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 | ...    | -            | -       |  Y  |  Y  |  -  |
 
 > **Note**: All supported future Fedora releases will have BPF & BTF support enabled.
+
+----
 
 ### [Ubuntu](https://en.wikipedia.org/wiki/Ubuntu_version_history)
 
