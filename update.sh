@@ -79,8 +79,7 @@ for ubuntuver in bionic focal; do
 	    echo FILENAME: "${filename}"
 	    echo VERSION: "${version}"
 
-	    if [ -f "${version}.btf.tar.xz" ]
-	    then
+	    if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
 	    	info "file ${version}.btf already exists"
 	    	continue
 	    fi
@@ -101,6 +100,7 @@ for ubuntuver in bionic focal; do
 	        warn "could not deal with ${version}, cleaning and moving on..."
 	        rm -rf "${basedir}/ubuntu/${ubuntuver}/x86_64/usr"
 	        rm -rf "${version}.ddeb"
+		touch "${version}.failed"
 	        continue
 	    }
 
@@ -109,6 +109,7 @@ for ubuntuver in bionic focal; do
 	        warn "could not rename vmlinux ${version}, cleaning and moving on..."
 	        rm -rf "${basedir}/ubuntu/${ubuntuver}/x86_64/usr"
 	        rm -rf "${version}.ddeb"
+		touch "${version}.failed"
 	        continue
 
         }
@@ -176,7 +177,7 @@ for centosver in centos7 centos8; do
         echo FILENAME: "${filename}"
         echo VERSION: "${version}"
 
-        if [ -f "${version}.btf.tar.xz" ]; then
+        if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
           info "file ${version}.btf already exists"
           continue
         fi
@@ -187,7 +188,7 @@ for centosver in centos7 centos8; do
           warn "${version}.rpm could not be downloaded"
           continue
         fi
-        
+
         vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
         echo "INFO: extracting vmlinux from: ${version}.rpm"
         rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
@@ -196,6 +197,7 @@ for centosver in centos7 centos8; do
 	        rm -rf "${basedir}/centos/${centosver/centos/}/x86_64/usr"
 	        rm -rf "${version}.rpm"
 	        rm -rf "${version}.vmlinux"
+		touch "${version}.failed"
 	        continue
         }
 
@@ -269,7 +271,7 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
         echo FILENAME: "${filename}"
         echo VERSION: "${version}"
 
-        if [ -f "${version}.btf.tar.xz" ]; then
+        if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
           info "file ${version}.btf already exists"
           continue
         fi
@@ -289,6 +291,7 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
 	        rm -rf "${basedir}/centos/${fedoraver/fedora/}/x86_64/usr"
 	        rm -rf "${version}.rpm"
 	        rm -rf "${version}.vmlinux"
+		touch "${version}.failed"
 	        continue
         }
 
