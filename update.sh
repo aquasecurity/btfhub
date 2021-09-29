@@ -116,7 +116,7 @@ for ubuntuver in bionic focal; do
 
 	    rm -rf "${basedir}/ubuntu/${ubuntuver}/x86_64/usr"
 
-	    pahole -j "${version}.btf" "${version}.vmlinux"
+	    pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
 	    # pahole "./${version}.btf" > "${version}.txt"
 	    tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
 
@@ -203,7 +203,7 @@ for centosver in centos7 centos8; do
 
         # generate BTF raw file from DWARF data
         echo "INFO: generating BTF file: ${version}.btf"
-        pahole -j "${version}.btf" "${version}.vmlinux"
+        pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
         # pahole "${version}.btf" > "${version}.txt"
         tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
 
@@ -297,7 +297,7 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
 
         # generate BTF raw file from DWARF data
         echo "INFO: generating BTF file: ${version}.btf"
-        pahole -j "${version}.btf" "${version}.vmlinux"
+        pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
         # pahole "${version}.btf" > "${version}.txt"
         tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
 
