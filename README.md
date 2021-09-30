@@ -52,7 +52,7 @@ pahole -J vmlinux
 ```
 or generate an external raw BTF file, by doing:
 ```
-pahole -j external.btf -J vmlinux
+pahole --btf_encode_detached external.btf vmlinux
 ```
 
 If you chose to generate a new .BTF ELF section within vmlinux file, you may be
