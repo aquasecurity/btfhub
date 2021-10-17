@@ -72,7 +72,7 @@ OSInfo: VERSION_CODENAME: bionic
 OSInfo: KERNEL_RELEASE: 5.4.0-87-generic
 BTF: bpfenv = false, btfenv = true, vmlinux = false
 BPF: using embedded BPF object
-BTF: using BTF file from environment: /home/rafaeldtinoco/work/sources/ebpf/aquasec-btfhub/tools/output/ubuntu/18.04/x86_64/5.4.0-87-generic.btf
+BTF: using BTF file from environment: ~/aquasec-btfhub/tools/output/ubuntu/18.04/x86_64/5.4.0-87-generic.btf
 unpacked CO:RE bpf object file into memory
 TIME             UID    COMM             PID     TID     RET              EVENT                ARGS
 05:08:45:175699  1000   bash             5176    5176    0                execve               pathname: /bin/ls, argv: [ls --color=auto]
