@@ -61,7 +61,7 @@ func main() {
 	var lostChannel chan uint64
 
 	// create BPF module using BPF object file
-	bpfModule, err = bpf.NewModuleFromFile("mine.bpf.o")
+	bpfModule, err = bpf.NewModuleFromFile("example.bpf.o")
 	if err != nil {
 		errExit(err)
 	}

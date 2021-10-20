@@ -43,7 +43,7 @@ CGO_EXTLDFLAGS_DYN = '-w'
 .PHONY: $(PROGRAM)
 .PHONY: $(PROGRAM).bpf.c
 
-PROGRAM = mine
+PROGRAM = example
 
 all:
 	$(MAKE) -C . $(PROGRAM)-c-static

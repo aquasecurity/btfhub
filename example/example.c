@@ -29,7 +29,7 @@
 #include <bpf/libbpf.h>
 #include <bpf/bpf.h>
 
-#include "mine.h"
+#include "example.h"
 
 static int bpfverbose = 0;
 static volatile bool exiting;
@@ -171,13 +171,13 @@ int main(int argc, char **argv)
 	// bpf object open options
 
 	openopts.sz = sizeof(struct bpf_object_open_opts);
-	btf_file = getenv("MINE_BTF_FILE");
+	btf_file = getenv("EXAMPLE_BTF_FILE");
 	if (btf_file != NULL)
 		openopts.btf_custom_path = strdup(btf_file);
 
 	// create bpf object from file
 
-	obj = bpf_object__open_file("mine.bpf.o", &openopts);
+	obj = bpf_object__open_file("example.bpf.o", &openopts);
 	err = libbpf_get_error(obj);
 	if (err) {
 		fprintf(stderr, "ERROR: failed to open bpf object file: %d\n", err);
