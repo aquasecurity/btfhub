@@ -1,0 +1,6 @@
+[submodule "libbpfgo"]
+	path = example/libbpfgo
+	url = git@github.com:aquasecurity/libbpfgo.git
+[submodule "libbpf"]
+	path = example/libbpf
+	url = git@github.com:libbpf/libbpf.git
