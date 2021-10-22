@@ -1,13 +1,32 @@
 #ifndef MINE_H_
 #define MINE_H_
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
+typedef signed char		__s8;
+typedef unsigned char		__u8;
+typedef short unsigned int	__u16;
+typedef int			__s32;
+typedef unsigned int		__u32;
+typedef long long int		__s64;
+typedef long long unsigned int	__u64;
+
+typedef __s8  s8 ;
+typedef __u8  u8 ;
+typedef __u16 u16;
+typedef __s32 s32;
+typedef __u32 u32;
+typedef __s64 s64;
+typedef __u64 u64;
 
 #ifndef KERNEL_VERSION
 #define KERNEL_VERSION(a,b,c) (((a) << 16) + ((b) << 8) + (c))
 #endif
+
+#define READ_KERN(ptr) \
+	({ typeof(ptr) _val;				\
+	__builtin_memset(&_val, 0, sizeof(_val));	\
+	bpf_core_read(&_val, sizeof(_val), &ptr);	\
+	_val;						\
+	})
 
 #define _wrapout(nl, ...)           \
 {                                   \
@@ -30,21 +49,16 @@ typedef unsigned int u32;
         exit(1);	\
 }
 
-struct events_t {
-	char comm[16];	// command (task_comm_len)
-	u32  pid;	// process id
-        u32  uid;	// user id
-        u32  gid;	// group id
-        u32  loginuid;	// real user (login/terminal)
-};
-
-enum {
-	HAVE_KERNEL_GZIP = 1,
-};
-
-struct kconfigs_t {
-	u8 needed;
-	u8 value;
-};
+typedef struct event_context {
+	u32 pid;
+	u32 tid;
+	u32 ppid;
+	u32 uid;
+	u64 flags;
+	u64 mode;
+	u64 ts;
+	char comm[16];
+	char filename[64];
+} context_t;
 
 #endif // MINE_H_

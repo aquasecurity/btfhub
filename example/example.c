@@ -77,11 +77,12 @@ int bump_memlock_rlimit(void)
 	return setrlimit(RLIMIT_MEMLOCK, &rlim_new);
 }
 
-static int output(struct events_t *e)
+static int output(context_t *e)
 {
 	char *currtime = get_currtime();
 
-	wrapout("(%s) %s (pid: %u) (loginuid: %d)", currtime, e->comm, e->pid, e->loginuid);
+	wrapout("(%s) %s (pid: %u) opened: %s (flags: 0x%08llx, mode: 0x%08llx)",
+			currtime, e->comm, e->pid, e->filename, e->flags, e->mode);
 
 	free(currtime);
 
@@ -115,7 +116,7 @@ int usage(int argc, char **argv)
 
 void handle_event(void *ctx, int cpu, void *evdata, __u32 data_sz)
 {
-	output((struct events_t *) evdata);
+	output((context_t *) evdata);
 }
 
 void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
@@ -133,11 +134,11 @@ int main(int argc, char **argv)
 	char *btf_file;
 	int map_fd, opt, pid_max, err = 0;
 
-	struct bpf_object *obj;
-	struct bpf_program *kp_program, *tp_program;
-	struct bpf_map *map;
-	struct bpf_link *link;
-	struct perf_buffer *pb;
+	struct bpf_object *obj = NULL;
+	struct bpf_program *program = NULL;
+	struct bpf_map *map = NULL;
+	struct bpf_link *link = NULL;
+	struct perf_buffer *pb = NULL;
 
 	struct bpf_object_open_opts openopts = {};
 	struct perf_buffer_opts pb_opts = {};
@@ -186,24 +187,16 @@ int main(int argc, char **argv)
 
 	// create bpf programs from bpf object
 
-	kp_program = bpf_object__find_program_by_name(obj, "ksys_sync");
-	err = libbpf_get_error(kp_program);
+	program = bpf_object__find_program_by_name(obj, "do_sys_openat2");
+	err = libbpf_get_error(program);
 	if (err) {
-		fprintf(stderr, "ERROR: failed to find ksys_sync program: %d\n", err);
-		goto cleanup;
-	}
-
-	tp_program = bpf_object__find_program_by_name(obj, "tracepoint__sys_enter_sync");
-	err = libbpf_get_error(tp_program);
-	if (err) {
-		fprintf(stderr, "ERROR: failed to find tracepoint sys_enter_sync: %d\n", err);
+		fprintf(stderr, "ERROR: failed to find ebpf program: %d\n", err);
 		goto cleanup;
 	}
 
 	// enable/disable program autoload
 
-	bpf_program__set_autoload(kp_program, 1);
-	bpf_program__set_autoload(tp_program, 1);
+	bpf_program__set_autoload(program, 1);
 
 	// load program(s)
 
@@ -225,17 +218,10 @@ int main(int argc, char **argv)
 
 	// links
 
-	link = bpf_program__attach(kp_program);
+	link = bpf_program__attach(program);
 	err = libbpf_get_error(link);
 	if (err) {
-		fprintf(stderr, "ERROR: failed to attach program to ksys_sync kprobe: %d\n", err);
-		goto cleanup;
-	}
-
-	link = bpf_program__attach(tp_program);
-	err = libbpf_get_error(link);
-	if (err) {
-		fprintf(stderr, "ERROR: failed to attach program to sys_enter_sync tracepoint: %d\n", err);
+		fprintf(stderr, "ERROR: failed to attach program to kprobe: %d\n", err);
 		goto cleanup;
 	}
 
@@ -259,9 +245,10 @@ int main(int argc, char **argv)
 	}
 
 cleanup:
-	perf_buffer__free(pb);
-	bpf_object__close(obj);
-	free(obj);
+	if (pb)
+		perf_buffer__free(pb);
+	if (obj)
+		bpf_object__close(obj);
 
-        return 0;
+	return 0;
 }

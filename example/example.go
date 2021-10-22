@@ -32,19 +32,27 @@ func errTimeout() {
 }
 
 type data struct {
-	Comm     [16]byte // 00 - 16 : command (task_comm_len)
-	Pid      uint32   // 16 - 20 : process id
-	Uid      uint32   // 20 - 24 : user id
-	Gid      uint32   // 24 - 28 : group id
-	LoginUid uint32   // 28 - 32 : real user (login/terminal)
+	Pid      uint32   // 0 4
+	Tid      uint32   // 4 4
+	PPid     uint32   // 8 4
+	Uid      uint32   // 12 4
+	Flags    uint64   // 16 8
+	Mode     uint64   // 24 8
+	TS       uint64   // 32 8
+	Comm     [16]byte // 40 16
+	FileName [64]byte // 56 64
 }
 
 type gdata struct {
-	Comm     string
 	Pid      uint
+	Tid      uint
+	PPid     uint
 	Uid      uint
-	Gid      uint
-	LoginUid uint
+	Flags    uint
+	Mode     uint
+	TS       uint
+	Comm     string
+	FileName string
 }
 
 func main() {
@@ -54,7 +62,6 @@ func main() {
 	var bpfModule *bpf.Module
 	var bpfMapEvents *bpf.BPFMap
 	var bpfProgKsysSync *bpf.BPFProg
-	//var bpfLinkKsysSync *bpf.BPFLink
 	var perfBuffer *bpf.PerfBuffer
 
 	var eventsChannel chan []byte
@@ -79,30 +86,14 @@ func main() {
 		errExit(err)
 	}
 
-	// when using ksys_sync kprobe:
-
 	// get BPF program from BPF object
-	bpfProgKsysSync, err = bpfModule.GetProgram("ksys_sync")
+	bpfProgKsysSync, err = bpfModule.GetProgram("do_sys_openat2")
 	if err != nil {
 		errExit(err)
 	}
 
 	// attach to BPF program to kprobe
-	_, err = bpfProgKsysSync.AttachKprobe("ksys_sync")
-	if err != nil {
-		errExit(err)
-	}
-
-	// when using ksys_sync syscall tracepoint
-
-	// get BPF program from BPF object
-	bpfProgKsysSync, err = bpfModule.GetProgram("tracepoint__sys_enter_sync")
-	if err != nil {
-		errExit(err)
-	}
-
-	// attach to BPF program to kprobe
-	_, err = bpfProgKsysSync.AttachTracepoint("syscalls:sys_enter_sync")
+	_, err = bpfProgKsysSync.AttachKprobe("do_sys_openat2")
 	if err != nil {
 		errExit(err)
 	}
@@ -144,14 +135,17 @@ func main() {
 			}
 
 			goData := gdata{
-				Comm:     string(bytes.TrimRight(dt.Comm[:], "\x00")),
 				Pid:      uint(dt.Pid),
+				Tid:      uint(dt.Tid),
+				PPid:     uint(dt.PPid),
 				Uid:      uint(dt.Uid),
-				Gid:      uint(dt.Gid),
-				LoginUid: uint(dt.LoginUid),
+				Flags:    uint(dt.Flags),
+				Mode:     uint(dt.Mode),
+				TS:       uint(dt.TS),
+				Comm:     string(bytes.TrimRight(dt.Comm[:], "\x00")),
+				FileName: string(bytes.TrimRight(dt.FileName[:], "\x00")),
 			}
-
-			_, _ = fmt.Fprintf(os.Stdout, "%s (pid: %d) (loginuid: %d)\n", goData.Comm, goData.Pid, goData.LoginUid)
+			_, _ = fmt.Fprintf(os.Stdout, "%s (pid: %d) opened: %s (flags: %08x, mode: %08x)\n", goData.Comm, goData.Pid, goData.FileName, goData.Flags, goData.Mode)
 		}
 	}()
 
