@@ -149,4 +149,4 @@ clean:
 	rm -rf $(OUTPUT)
 	rm -rf $(VMLINUXH)
 	rm -rf $(PROGRAM)-*static $(PROGRAM)-*dynamic
-	rm -rf $(PROGRAM).bpf.o
+	rm -rf $(PROGRAM).bpf.o $(PROGRAM).o
