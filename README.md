@@ -4,6 +4,10 @@ GitHub in transition mode. Will provide full README soon.
 
 For now, to stick with its previous behavior, one may access branch 'main-old'.
 
+If you're looking for the BTF files only, you may find it more easily at:
+
+https://github.com/aquasecurity/btfhub-archive/
+
 ## BPF CO-RE programs and BTF files
 
 [eBPF](https://www.kernel.org/doc/html/latest/bpf/index.html) programs can be portable. The same eBPF object file is capable of being loaded into multiple kernel versions. The technology that makes this possible is called [CO-RE](https://nakryiko.com/posts/bpf-portability-and-co-re/): Compile Once - Run Everywhere.
