@@ -68,7 +68,7 @@ In a same eBPF object file you might have _multiple different_ eBPF programs. Ea
 
 Look at the following example:
 
-![](docs/image03.png)
+![](btfgen-internals/image03.png)
 
 The image above is an example of how the eBPF object of the [BTFHUB example](https://github.com/aquasecurity/btfhub/tree/main/example) looks like. Taking a look at the [source code](https://github.com/aquasecurity/btfhub/blob/main/example/example.bpf.c) you will see we have 2 *inlined functions* and 1 *non-inlined one*. As the reader probably knows, the inline function will become part of its callee (the compiler won't arrange the stack with a new frame), so at the end we will have only 1 eBPF program:
 
@@ -78,11 +78,11 @@ The image above is an example of how the eBPF object of the [BTFHUB example](htt
 
 For each eBPF program ELF section, just one in this simple example, we have a correspondent section for all its local relocation info:
 
-![](docs/image04.png)
+![](btfgen-internals/image04.png)
 
 The information about the **types, functions** (and needed dynamic relocations) used in this eBPF object is **contained in two ELF sections**: .BTF and [.BTF.ext](https://www.kernel.org/doc/html/latest/bpf/btf.html#btf-ext-section), both explained in details later on.
 
-![](docs/image05.png)
+![](btfgen-internals/image05.png)
 
 After this introduction, this document will concentrate most, if not all, of its efforts in those structures and explain what the **BTF GENERATOR** tool is, and how eBPF programmers, seeking for code portability by using eBPF CO-RE, can benefit from it.
 
@@ -92,7 +92,7 @@ Perhaps the best document out there describing BTF is [Andrii's - BTF deduplicat
 
 In there you will find the following diagram:
 
-![](docs/image02.png)
+![](btfgen-internals/image02.png)
 
 illustrating the **BTF type graph**. As you can see, BTF consists in **type descriptors** to describe, using **BTF types**, all types being used in your eBPF object. Each **BTF type** has a certain **KIND** and might point to another **BTF type** or not.
 
@@ -127,7 +127,7 @@ BTF kinds are encoded as binary. They're placed one after another and, depending
 
 Example of memory organization for the most important **BTF type kinds**:
 
-![](docs/image06.png)
+![](btfgen-internals/image06.png)
 
 ### BTF ELF SECTIONS
 
@@ -458,7 +458,7 @@ After local relocations are done, the eBPF object isn't ready yet to be loaded. 
 
 When compiling CO-RE (Compile Once - Run Everywhere) BPF architecture objects, LLVM BPF backend records each relocation in an **ELF structure** containing only relocation information. Those structures are placed in the correspondent RELO section (.BTF.ext) so they can be used by libbpf during load time.
 
-> This is only possible thanks to [this feature](https://clang.llvm.org/docs/LanguageExtensions.html#builtin-preserve-access-index) called **builtin\_preserve\_access\_index** (used by bpf\_core\_read() helper function). By using this keyword, when accessing a kernel pointer, you are instructing LLVM to **keep the relocation information into the generated ELF file** so the **kernels where the BPF object will run knows how to relocate the symbols ** 
+> This is only possible thanks to [this feature](https://clang.llvm.org/btfgen-internals/LanguageExtensions.html#builtin-preserve-access-index) called **builtin\_preserve\_access\_index** (used by bpf\_core\_read() helper function). By using this keyword, when accessing a kernel pointer, you are instructing LLVM to **keep the relocation information into the generated ELF file** so the **kernels where the BPF object will run knows how to relocate the symbols ** 
 
 Example of a header file:
 
@@ -555,7 +555,7 @@ The second function, `bpf_core_apply_relo_insn()` will take care of the followin
 
 2. Check each relocation candidate, from `cand_cache` if they really satisfy the relocation needs AND, if they do, generate a low and a high-level representation of the target speculation, named as **`targ_spec`**.
 
-	![](docs/image07-01.png)
+	![](btfgen-internals/image07-01.png)
 
 3. Call `bpf_core_calc_relo()` function to calculate the relocation for a given `local_spec` (local speculation) and a `targ_spec` (target speculation). Depending on the type of relocation being worked with it will call the appropriate handling function:
 
@@ -573,7 +573,7 @@ The second function, `bpf_core_apply_relo_insn()` will take care of the followin
 	6. new size of the new type id
 	7. new type id
 
-		![](docs/image07-02.png)
+		![](btfgen-internals/image07-02.png)
 
 4. Patch the instruction (`bpf_core_patch_insn()`) related to the relocation given by using `local_spec`AND `targ_res` information.
 
@@ -850,7 +850,7 @@ So, as showed, to each given relocation we must use contained information, of ty
 
 Look on how the data is organized:
 
-![](docs/image08.png)
+![](btfgen-internals/image08.png)
 
 A single `BTF_RELOC_INFO` structure is created, and it contains:
 
@@ -1046,8 +1046,8 @@ Other great links that might be worth reading are:
 2. [Development Toolchains](https://ebpf.io/what-is-ebpf#development-toolchains) (from: ebpf.io/what-is-ebpf)
 3. [BCC to libbpf conversion guide](https://nakryiko.com/posts/bcc-to-libbpf-howto-guide/) (if you're coming from BCC)
 4. [Building BPF applications with libbpf-bootstrap](https://nakryiko.com/posts/libbpf-bootstrap/)
-5. [BPF Design FAQ](https://01.org/linuxgraphics/gfx-docs/drm/bpf/bpf_design_QA.html)
-6. [eBPF features per kernel version](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md#program-types)
+5. [BPF Design FAQ](https://01.org/linuxgraphics/gfx-btfgen-internals/drm/bpf/bpf_design_QA.html)
+6. [eBPF features per kernel version](https://github.com/iovisor/bcc/blob/master/btfgen-internals/kernel-versions.md#program-types)
 7. [BTFHUB code example](https://github.com/aquasecurity/btfhub/tree/main/example)
 8. [BCC's libbpf-tools directory](https://github.com/iovisor/bcc/tree/master/libbpf-tools)
 
