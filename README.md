@@ -78,5 +78,6 @@ current status on **eBPF** and **BTF** support.
 
 ## Where can I find more information ?
 
+- [How to use Pahole to generate BTF information](https://github.com/aquasecurity/btfhub/blob/main/docs/how-to-use-pahole.md)
 - [BTF Generator Internals](https://github.com/aquasecurity/btfhub/blob/main/docs/btfgen-internals.md)
 - more references to come...
