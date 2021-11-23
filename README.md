@@ -65,13 +65,18 @@ current status on **eBPF** and **BTF** support.
 
 ## How can I use it ?
 
-[This is a code example](example/) of how you should use BTFhub to add support
-to legacy kernels to your eBPF project. The uncompressed full BTF files, from
-the [BTFhub-Archive repository](https://github.com/aquasecurity/btfhub-archive),
-should feed libbpf used by your eBPF project, just like showed in
-[this C example](https://github.com/aquasecurity/btfhub/blob/main/example/example.c#L177)
-or [this Go example](https://github.com/aquasecurity/btfhub/blob/main/example/example.go#L88).
+1. [This is a code example](example/) of how you should use BTFhub to add
+   support to legacy kernels to your eBPF project. The uncompressed full BTF
+   files, from the [BTFhub-Archive repository](https://github.com/aquasecurity/btfhub-archive),
+   should feed libbpf used by your eBPF project, just like showed in
+   [this C example](https://github.com/aquasecurity/btfhub/blob/main/example/example.c#L177)
+   or [this Go example](https://github.com/aquasecurity/btfhub/blob/main/example/example.go#L88).
+
+2. You may use the [BTFgen tool to create smaller BTF
+   files](docs/generating-tailored-btfs.md), so you can embed them into your
+   eBPF application and make it support all kernels supported by BTFhub.
 
 ## Where can I find more information ?
 
-- TBD
+- [BTF Generator Internals](https://github.com/aquasecurity/btfhub/blob/main/docs/btfgen-internals.md)
+- more references to come...
