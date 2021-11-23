@@ -1,0 +1,38 @@
+name: Update BTFHub Archives
+on:
+  schedule:
+  - cron: '0 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Update BTF
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Check out code repo
+      uses: actions/checkout@v2
+
+    - name: Checkout public BTFHub repo
+      uses: actions/checkout@v2
+      with:
+        repository: aquasecurity/btfhub-archive
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        path: btfhub-archive-repo
+
+    - name: Prepare current BTFHub repo archives
+      run: make gather
+
+    - name: Install packages required for BTF downloads
+      run: sudo apt-get install -y lynx
+
+    - name: Update BTF archives
+      run: make update
+
+    - name: Commit and Push to BTFHub repo
+      run: |
+        cd btfhub-archive-repo
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add -A
+        git diff-index --quiet HEAD || git commit -m "Update BTF Archives"
+        git push
