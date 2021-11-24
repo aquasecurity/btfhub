@@ -100,8 +100,7 @@ for ubuntuver in bionic focal; do
 	    fi
 
 	    if [ ! -f "${version}.ddeb" ]; then
-	    	axel -4 -n 8 "${url}"
-	    	mv "${filename}" "${version}.ddeb"
+	    	curl -4 "${url}" -o ${version}.ddeb
 	    	if [ ! -f "${version}.ddeb" ]
 	    	then
 	    		warn "${version}.ddeb could not be downloaded"
@@ -214,8 +213,7 @@ for centosver in centos7 centos8; do
           continue
         fi
 
-        axel -4 -n 8 "${url}"
-        mv "${filename}" "${version}.rpm"
+	curl -4 "${url}" -o ${version}.rpm
         if [ ! -f "${version}.rpm" ]; then
           warn "${version}.rpm could not be downloaded"
           continue
@@ -324,8 +322,7 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
           continue
         fi
 
-        axel -4 -n 8 "${url}"
-        mv "${filename}" "${version}.rpm"
+	curl -4 "${url}" -o ${version}.rpm
         if [ ! -f "${version}.rpm" ]; then
           warn "${version}.rpm could not be downloaded"
           continue
