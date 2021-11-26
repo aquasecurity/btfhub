@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Updating BTF archives..."
+
 ##
 ## This script IS SUPPOSED to be a big monolithic script.
 ## That's it: The tree should focus in arranging BTF data.
