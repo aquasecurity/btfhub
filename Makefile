@@ -1,3 +1,5 @@
+.PHONY: gather update test
+
 gather:
 	rm -rf archive
 	mkdir archive
@@ -8,3 +10,6 @@ update:
   		./tools/update.sh $$distro; \
 	done
 	rsync -av ./archive/ btfhub-archive-repo --exclude=.gitignore
+
+test:
+	bats test/test.bats
