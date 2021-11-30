@@ -75,7 +75,7 @@ for dir in $(find ./archive/ -iregex ".*${a}.*" -type d | sed 's:\.\/archive\/::
 		[[ ! -d ${out_dir} ]] && mkdir -p ${out_dir}
 
 		# generate one output BTF file to each input BTF file given
-		$btfgen --nopoison --input=./${extracted} --output=${out_dir} ${obj_cmdline}
+		$btfgen --input=./${extracted} --output=${out_dir} ${obj_cmdline}
 		[[ $ret -eq 0 ]] && [[ -f ./${extracted} ]] && rm ./${extracted}
 	done
 
