@@ -47,9 +47,7 @@ PROGRAM = example
 
 all:
 	$(MAKE) -C . $(PROGRAM)-c-static
-	$(MAKE) -C . $(PROGRAM)-c-dynamic
 	$(MAKE) -C . $(PROGRAM)-static
-	$(MAKE) -C . $(PROGRAM)-dynamic
 
 # vmlinux header file
 
