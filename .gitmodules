@@ -4,3 +4,9 @@
 [submodule "test/test_helper/bats-assert"]
 	path = test/test_helper/bats-assert
 	url = https://github.com/bats-core/bats-assert.git
+[submodule "libbpf"]
+	path = example/libbpf
+	url = git@github.com:libbpf/libbpf.git
+[submodule "libbpfgo"]
+	path = example/libbpfgo
+	url = git@github.com:aquasecurity/libbpfgo.git

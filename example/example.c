@@ -91,7 +91,7 @@ static int output(context_t *e)
 
 int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
-	if (level == LIBBPF_INFO && !bpfverbose)
+	if (level == LIBBPF_DEBUG && !bpfverbose)
 		return 0;
 
 	return vfprintf(stderr, format, args);
