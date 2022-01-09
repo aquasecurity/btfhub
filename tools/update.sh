@@ -7,7 +7,7 @@ echo "Updating BTF archives..."
 ## That's it: The tree should focus in arranging BTF data.
 ##
 
-## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}]
+## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon2|stretch|buster|bullseye]
 
 basedir=$(dirname "${0}")
 if [ "${basedir}" == "." ]; then
@@ -361,5 +361,219 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
 done
 
 done #arch
+
+###
+### 4. amazon2
+###
+
+for arch in x86_64 arm64; do
+
+for amazonver in amazon2; do
+
+    if [ "${1}" != "${amazonver}" ]; then
+        continue
+    fi
+
+    case "${arch}" in
+    "x86_64")
+        altarch="x86_64"
+    ;;
+    "arm64")
+        altarch="aarch64"
+    ;;
+    *)
+        exiterr "could not find architecture"
+    ;;
+    esac
+
+    origdir=$(pwd)
+    repository=https://amazonlinux-2-repos-us-east-2.s3.dualstack.us-east-2.amazonaws.com/2/core/latest/debuginfo/${altarch}/mirror.list
+
+    mkdir -p "${basedir}/amzn/2/${arch}"
+    cd "${basedir}/amzn/2/${arch}" || exiterr "no ${amazonver} dir found"
+
+    info "downloading ${repository} mirror list"
+    wget $repository
+    info "downloading ${repository} information"
+    wget "$(head -1 mirror.list)/repodata/primary.sqlite.gz"
+    rm -f mirror.list
+
+    gzip -d primary.sqlite.gz
+    rm -f primary.sqlite.gz
+
+    packages=$(sqlite3 primary.sqlite "select location_href FROM packages WHERE name like 'kernel-debuginfo%' and name not like '%common%'" | sed 's#\.\./##g')
+    rm -f primary.sqlite
+
+    for line in $packages; do
+        url=${line}
+        filename=$(basename "${line}")
+        # shellcheck disable=SC2001
+        version=$(echo "${filename}" | sed 's:kernel-debuginfo-\(.*\).rpm:\1:g')
+
+        echo URL: "${url}"
+        echo FILENAME: "${filename}"
+        echo VERSION: "${version}"
+
+        if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+            info "file ${version}.btf already exists"
+            continue
+        fi
+
+        curl -4 "http://amazonlinux.us-east-1.amazonaws.com/${url}" -o ${version}.rpm
+        if [ ! -f "${version}.rpm" ]; then
+            warn "${version}.rpm could not be downloaded"
+            continue
+        fi
+
+        vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
+        echo "INFO: extracting vmlinux from: ${version}.rpm"
+        rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
+        {
+            warn "could not deal with ${version}, cleaning and moving on..."
+            rm -rf "${basedir}/amzn/2/${arch}/usr"
+            rm -rf "${version}.rpm"
+            rm -rf "${version}.vmlinux"
+            touch "${version}.failed"
+            continue
+        }
+
+        # generate BTF raw file from DWARF data
+        echo "INFO: generating BTF file: ${version}.btf"
+        pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+        tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+
+        rm "${version}.rpm"
+        rm "${version}.btf"
+        rm "${version}.vmlinux"
+
+    done
+
+    rm -f packages
+    cd "${origdir}" >/dev/null || exit
+done
+
+done #arch
+
+
+###
+### 5. Debian (stretch, buster, bullseye)
+###
+
+regex="linux-image-[0-9]+\.[0-9]+\.[0-9].*-dbg"
+for arch in x86_64 arm64; do
+
+for debianver in stretch buster bullseye; do
+    if [ "${1}" != "${debianver}" ]; then
+        continue
+    fi
+
+    case "${debianver}" in
+    "stretch")
+        debian_number=9
+        ;;
+    "buster")
+        debian_number=10
+        ;;
+    "bullseye")
+        debian_number=11
+        ;;
+    *)
+    continue
+        ;;
+    esac
+
+    case "${arch}" in
+    "x86_64")
+        altarch="amd64"
+    ;;
+    "arm64")
+        altarch="arm64"
+    ;;
+    *)
+        exiterr "could not find architecture"
+    ;;
+    esac
+
+    origdir=$(pwd)
+    repository="http://ftp.debian.org/debian"
+
+    mkdir -p "${basedir}/debian/${debian_number}/${arch}"
+    cd "${basedir}/debian/${debian_number}/${arch}" || exiterr "no ${debian_number} dir found"
+
+    wget ${repository}/dists/${debianver}/main/binary-${altarch}/Packages.gz -O ${debianver}.gz
+    wget ${repository}/dists/${debianver}-updates/main/binary-${altarch}/Packages.gz -O ${debianver}-updates.gz
+
+    [ ! -f ${debianver}.gz ] && exiterr "no ${debianver}.gz packages file found"
+    [ ! -f ${debianver}-updates.gz ] && exiterr "no ${debianver}-updates.gz packages file found"
+
+    gzip -d ${debianver}.gz
+    grep -E '^(Package|Filename):' ${debianver} | grep --no-group-separator -A1 -E "^Package: ${regex}" > packages
+    gzip -d ${debianver}-updates.gz
+    grep -E '^(Package|Filename):' ${debianver}-updates | grep --no-group-separator -A1 -E "Package: ${regex}" >> packages
+    rm -f ${debianver} ${debianver}-updates
+
+    grep "Package:" packages | sed 's:Package\: ::g' | sort | while read -r package; do
+
+        filepath=$(grep -A1 "${package}" packages | grep -v "^Package: " | sed 's:Filename\: ::g')
+        url="${repository}/${filepath}"
+        filename=$(basename "${filepath}")
+        version=$(echo "${filename}" | sed 's:linux-image-::g' | sed 's:-dbg.*::g' | sed 's:unsigned-::g')
+
+        echo URL: "${url}"
+        echo FILEPATH: "${filepath}"
+        echo FILENAME: "${filename}"
+        echo VERSION: "${version}"
+
+        if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+            info "file ${version}.btf already exists"
+            continue
+        fi
+
+        if [ ! -f "${version}.ddeb" ]; then
+            curl -4 "${url}" -o ${version}.ddeb
+            if [ ! -f "${version}.ddeb" ]
+            then
+                warn "${version}.ddeb could not be downloaded"
+                continue
+            fi
+        fi
+
+        # extract vmlinux file from ddeb package
+        dpkg --fsys-tarfile "${version}.ddeb" | tar xvf - "./usr/lib/debug/boot/vmlinux-${version}" || \
+        {
+            warn "could not deal with ${version}, cleaning and moving on..."
+            rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
+            rm -rf "${version}.ddeb"
+            touch "${version}.failed"
+            continue
+        }
+
+        mv "./usr/lib/debug/boot/vmlinux-${version}" "./${version}.vmlinux" || \
+        {
+            warn "could not rename vmlinux ${version}, cleaning and moving on..."
+            rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
+            rm -rf "${version}.ddeb"
+            touch "${version}.failed"
+            continue
+
+        }
+
+        rm -rf "./usr/lib/debug/boot"
+
+        pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+        tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+
+        rm "${version}.ddeb"
+        rm "${version}.btf"
+        rm "${version}.vmlinux"
+
+    done
+
+    rm -f packages
+    cd "${origdir}" >/dev/null || exit
+
+done
+
+done # arch
 
 exit 0
