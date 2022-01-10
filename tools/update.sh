@@ -501,15 +501,21 @@ for debianver in stretch buster bullseye; do
     cd "${basedir}/debian/${debian_number}/${arch}" || exiterr "no ${debian_number} dir found"
 
     wget ${repository}/dists/${debianver}/main/binary-${altarch}/Packages.gz -O ${debianver}.gz
-    wget ${repository}/dists/${debianver}-updates/main/binary-${altarch}/Packages.gz -O ${debianver}-updates.gz
+    if [ ${debian_number} -lt 11 ]; then
+        wget ${repository}/dists/${debianver}-updates/main/binary-${altarch}/Packages.gz -O ${debianver}-updates.gz
+    fi
 
     [ ! -f ${debianver}.gz ] && exiterr "no ${debianver}.gz packages file found"
-    [ ! -f ${debianver}-updates.gz ] && exiterr "no ${debianver}-updates.gz packages file found"
+    if [ ${debian_number} -lt 11 ]; then
+        [ ! -f ${debianver}-updates.gz ] && exiterr "no ${debianver}-updates.gz packages file found"
+    fi
 
     gzip -d ${debianver}.gz
     grep -E '^(Package|Filename):' ${debianver} | grep --no-group-separator -A1 -E "^Package: ${regex}" > packages
-    gzip -d ${debianver}-updates.gz
-    grep -E '^(Package|Filename):' ${debianver}-updates | grep --no-group-separator -A1 -E "Package: ${regex}" >> packages
+    if [ ${debian_number} -lt 11 ]; then
+        gzip -d ${debianver}-updates.gz
+        grep -E '^(Package|Filename):' ${debianver}-updates | grep --no-group-separator -A1 -E "Package: ${regex}" >> packages
+    fi
     rm -f ${debianver} ${debianver}-updates
 
     grep "Package:" packages | sed 's:Package\: ::g' | sort | while read -r package; do
