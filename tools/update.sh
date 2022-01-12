@@ -46,10 +46,10 @@ for ubuntuver in bionic focal; do
 
     case "${ubuntuver}" in
     "bionic")
-        regex="(linux-image-unsigned-(4.15.0|5.4.0)-.*-(generic|azure)-dbgsym|linux-image-(4.15.0|5.4.0)-.*-aws-dbgsym)"
+        regex="(linux-image-unsigned-(4.15.0|5.4.0)-.*-(generic|azure|gke)-dbgsym|linux-image-(4.15.0|5.4.0)-.*-aws-dbgsym)"
         ;;
     "focal")
-        regex="(linux-image-unsigned-(5.4.0|5.8.0|5.11.0)-.*-(generic|azure)-dbgsym|linux-image-(5.4.0|5.8.0|5.11.0)-.*-aws-dbgsym)"
+        regex="(linux-image-unsigned-(5.4.0|5.8.0|5.11.0)-.*-(generic|azure|gke)-dbgsym|linux-image-(5.4.0|5.8.0|5.11.0)-.*-aws-dbgsym)"
         ;;
     *)
         continue
