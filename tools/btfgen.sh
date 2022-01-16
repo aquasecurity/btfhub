@@ -27,7 +27,7 @@ fi
 
 obj_cmdline=""
 for ofile in "${o[@]}"; do
-	obj_cmdline+="--object ${ofile} "
+	obj_cmdline+="${ofile} "
 done
 
 basedir=$(dirname ${0})/..
@@ -42,9 +42,9 @@ fi
 
 cd ${basedir}
 
-btfgen=./tools/bin/btfgen.$(uname -m)
+btfgen=./tools/bin/bpftool.$(uname -m)
 if [ ! -x "${btfgen}" ]; then
-	echo "error: could not find btfgen tool"
+	echo "error: could not find bpftool (w/ btfgen patch) tool"
 	exit 1
 fi
 
@@ -75,7 +75,7 @@ for dir in $(find ./archive/ -iregex ".*${a}.*" -type d | sed 's:\.\/archive\/::
 		[[ ! -d ${out_dir} ]] && mkdir -p ${out_dir}
 
 		# generate one output BTF file to each input BTF file given
-		$btfgen --input=./${extracted} --output=${out_dir} ${obj_cmdline}
+		$btfgen gen btf ./${extracted} ./${out_dir} ${obj_cmdline}
 		[[ $ret -eq 0 ]] && [[ -f ./${extracted} ]] && rm ./${extracted}
 	done
 
