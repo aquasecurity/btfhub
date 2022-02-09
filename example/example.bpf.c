@@ -42,7 +42,8 @@ BPF_PERF_OUTPUT(events);
 
 // helper functions
 
-static __always_inline u32 get_task_ppid(struct task_struct *task)
+static __always_inline u32
+get_task_ppid(struct task_struct *task)
 {
 	struct task_struct *parent = READ_KERN(task->real_parent);
 	return READ_KERN(parent->pid);
@@ -50,7 +51,9 @@ static __always_inline u32 get_task_ppid(struct task_struct *task)
 
 // inline helper function
 
-static __always_inline int init_context(context_t *context, struct task_struct *task) {
+static __always_inline int
+init_context(context_t *context, struct task_struct *task)
+{
 
 	u64 id = bpf_get_current_pid_tgid();
 	context->tid = id;

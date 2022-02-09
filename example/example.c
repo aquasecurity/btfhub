@@ -34,7 +34,8 @@
 static int bpfverbose = 0;
 static volatile bool exiting;
 
-char *get_currtime(void)
+char *
+get_currtime(void)
 {
 	char *datetime = malloc(100);
 	time_t t = time(NULL);
@@ -51,7 +52,8 @@ char *get_currtime(void)
 	return datetime;
 }
 
-static int get_pid_max(void)
+static int
+get_pid_max(void)
 {
 	FILE *f;
 	int pid_max = 0;
@@ -67,7 +69,8 @@ static int get_pid_max(void)
 	return pid_max;
 }
 
-int bump_memlock_rlimit(void)
+int
+bump_memlock_rlimit(void)
 {
 	struct rlimit rlim_new = {
 		.rlim_cur = RLIM_INFINITY,
@@ -77,19 +80,21 @@ int bump_memlock_rlimit(void)
 	return setrlimit(RLIMIT_MEMLOCK, &rlim_new);
 }
 
-static int output(context_t *e)
+static int
+output(context_t *e)
 {
 	char *currtime = get_currtime();
 
 	wrapout("(%s) %s (pid: %u) opened: %s (flags: 0x%08llx, mode: 0x%08llx)",
-			currtime, e->comm, e->pid, e->filename, e->flags, e->mode);
+	        currtime, e->comm, e->pid, e->filename, e->flags, e->mode);
 
 	free(currtime);
 
 	return 0;
 }
 
-int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
+int
+libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list args)
 {
 	if (level == LIBBPF_DEBUG && !bpfverbose)
 		return 0;
@@ -97,39 +102,44 @@ int libbpf_print_fn(enum libbpf_print_level level, const char *format, va_list a
 	return vfprintf(stderr, format, args);
 }
 
-int usage(int argc, char **argv)
+int
+usage(int argc, char **argv)
 {
 	fprintf(stdout,
-		"\n"
-		"Syntax: %s [options]\n"
-		"\n"
-		"\t[options]:\n"
-		"\n"
-		"\t-v: bpf verbose mode\n"
-		"\n"
-		"Check https://rafaeldtinoco.github.io/portablebpf/\n"
-		"\n",
-		argv[0]);
+	        "\n"
+	        "Syntax: %s [options]\n"
+	        "\n"
+	        "\t[options]:\n"
+	        "\n"
+	        "\t-v: bpf verbose mode\n"
+	        "\n"
+	        "Check https://rafaeldtinoco.github.io/portablebpf/\n"
+	        "\n",
+	        argv[0]);
 
 	exit(0);
 }
 
-void handle_event(void *ctx, int cpu, void *evdata, __u32 data_sz)
+void
+handle_event(void *ctx, int cpu, void *evdata, __u32 data_sz)
 {
 	output((context_t *) evdata);
 }
 
-void handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
+void
+handle_lost_events(void *ctx, int cpu, __u64 lost_cnt)
 {
 	fprintf(stderr, "lost %llu events on CPU #%d\n", lost_cnt, cpu);
 }
 
-void trap(int what)
+void
+trap(int what)
 {
 	exiting = 1;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
 	char *btf_file;
 	int map_fd, opt, pid_max, err = 0;
@@ -148,6 +158,7 @@ int main(int argc, char **argv)
 		case 'v':
 			bpfverbose = 1;
 			break;
+
 		case 'h':
 		default:
 			usage(argc, argv);
@@ -173,6 +184,7 @@ int main(int argc, char **argv)
 
 	openopts.sz = sizeof(struct bpf_object_open_opts);
 	btf_file = getenv("EXAMPLE_BTF_FILE");
+
 	if (btf_file != NULL)
 		openopts.btf_custom_path = strdup(btf_file);
 
@@ -180,6 +192,7 @@ int main(int argc, char **argv)
 
 	obj = bpf_object__open_file("example.bpf.o", &openopts);
 	err = libbpf_get_error(obj);
+
 	if (err) {
 		fprintf(stderr, "ERROR: failed to open bpf object file: %d\n", err);
 		goto cleanup;
@@ -189,6 +202,7 @@ int main(int argc, char **argv)
 
 	program = bpf_object__find_program_by_name(obj, "sys_enter_openat");
 	err = libbpf_get_error(program);
+
 	if (err) {
 		fprintf(stderr, "ERROR: failed to find ebpf program: %d\n", err);
 		goto cleanup;
@@ -201,6 +215,7 @@ int main(int argc, char **argv)
 	// load program(s)
 
 	err = bpf_object__load(obj);
+
 	if (err) {
 		fprintf(stderr, "ERROR: failed to load bpf object file: %d\n", err);
 		goto cleanup;
@@ -210,16 +225,19 @@ int main(int argc, char **argv)
 
 	map = bpf_object__find_map_by_name(obj, "events");
 	err = libbpf_get_error(map);
+
 	if (err) {
 		fprintf(stderr, "ERROR: failed to find events map: %d\n", err);
 		goto cleanup;
 	}
+
 	map_fd = bpf_map__fd(map);
 
 	// links
 
 	link = bpf_program__attach(program);
 	err = libbpf_get_error(link);
+
 	if (err) {
 		fprintf(stderr, "ERROR: failed to attach program to kprobe: %d\n", err);
 		goto cleanup;
@@ -232,21 +250,26 @@ int main(int argc, char **argv)
 
 	pb = perf_buffer__new(map_fd, 16, &pb_opts);
 	err = libbpf_get_error(pb);
+
 	if (err) {
 		fprintf(stderr, "ERROR: failed to create perf event: %d\n", err);
 		goto cleanup;
 	}
 
 	printf("Tracing... Hit Ctrl-C to end.\n");
+
 	while (1) {
 		err = perf_buffer__poll(pb, 100);
+
 		if (err < 0 || exiting)
 			break;
 	}
 
 cleanup:
+
 	if (pb)
 		perf_buffer__free(pb);
+
 	if (obj)
 		bpf_object__close(obj);
 
