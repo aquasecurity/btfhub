@@ -8,11 +8,13 @@ gather:
 #
 # The following distributions (and versions):
 #
+# fedora32
 # fedora33
 # fedora34
 # centos8
 # bionic
 # focal
+# debian11
 #
 # are, now, releasing kernels with BTF support. This means that BTFHUB does not
 # need to keep generating BTF files for them, as it won't be needed by eBPF
@@ -30,11 +32,9 @@ update:
 		fedora29 \
 		fedora30 \
 		fedora31 \
-		fedora32 \
 		centos7 \
 		stretch \
 		buster \
-		bullseye \
 		amazon2; \
 	do \
 		./tools/update.sh $$distro; \
