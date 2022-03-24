@@ -39,6 +39,7 @@ update:
 	do \
 		./tools/update.sh $$distro; \
 	done
+	./tools/update.sh bionic 4.15.0
 	rsync -av ./archive/ btfhub-archive-repo --exclude=.gitignore
 
 test:
