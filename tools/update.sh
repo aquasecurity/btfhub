@@ -40,16 +40,34 @@ for arch in x86_64 arm64; do
 
 for ubuntuver in bionic focal; do
 
-    if [ "${1}" != "${ubuntuver}" ]; then
+if [ "${1}" != "${ubuntuver}" ]; then
+    continue
+fi
+
+case "${ubuntuver}" in
+"bionic")
+    kernelversions=("4.15.0" "5.4.0")
+    ;;
+"focal")
+    kernelversions=("5.4.0" "5.8.0" "5.11.0")
+    ;;
+*)
+    continue
+    ;;
+esac
+
+for kernelver in $kernelversions; do
+
+    if [ -z "${2}" ] || [ "${2}" != "${kernelver}" ]; then
         continue
     fi
 
     case "${ubuntuver}" in
     "bionic")
-        regex="(linux-image-unsigned-(4.15.0|5.4.0)-.*-(generic|azure|gke|gcp)-dbgsym|linux-image-(4.15.0|5.4.0)-.*-aws-dbgsym)"
+        regex="(linux-image-unsigned-$kernelver-.*-(generic|azure|gke|gcp)-dbgsym|linux-image-$kernelver-.*-aws-dbgsym)"
         ;;
     "focal")
-        regex="(linux-image-unsigned-(5.4.0|5.8.0|5.11.0)-.*-(generic|azure|gke|gcp)-dbgsym|linux-image-(5.4.0|5.8.0|5.11.0)-.*-aws-dbgsym)"
+        regex="(linux-image-unsigned-$kernelver-.*-(generic|azure|gke|gcp)-dbgsym|linux-image-$kernelver-.*-aws-dbgsym)"
         ;;
     *)
         continue
@@ -71,7 +89,7 @@ for ubuntuver in bionic focal; do
     origdir=$(pwd)
     repository="http://ddebs.ubuntu.com"
 
-    mkdir -p "${basedir}/ubuntu/${ubuntuver}"
+    mkdir -p "${basedir}/ubuntu/${ubuntuver}/${arch}"
     cd "${basedir}/ubuntu/${ubuntuver}/${arch}" || exiterr "no ${ubuntuver} dir found"
 
     wget http://ddebs.ubuntu.com/dists/${ubuntuver}/main/binary-${altarch}/Packages -O ${ubuntuver}
@@ -130,7 +148,7 @@ for ubuntuver in bionic focal; do
 
         }
 
-	    rm -rf "${basedir}/ubuntu/${ubuntuver}/${arch}/usr"
+	    rm -rf "./usr"
 
 	    pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
 	    # pahole "./${version}.btf" > "${version}.txt"
@@ -146,6 +164,8 @@ for ubuntuver in bionic focal; do
     pwd
     rm -f packages
     cd "${origdir}" >/dev/null || exit
+
+done # kernelver
 
 done
 
@@ -189,7 +209,7 @@ for centosver in centos7 centos8; do
 
     regex="kernel-debuginfo-[0-9].*${altarch}.rpm"
 
-    mkdir -p "${basedir}/centos/${centosver/centos/}"
+    mkdir -p "${basedir}/centos/${centosver/centos/}/${arch}"
     cd "${basedir}/centos/${centosver/centos/}/${arch}" || exiterr "no ${centosver} dir found"
 
     info "downloading ${repository} information"
@@ -295,7 +315,7 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
 
     regex="kernel-debuginfo-[0-9].*${altarch}.rpm"
 
-    mkdir -p "${basedir}/fedora/${fedoraver/fedora/}"
+    mkdir -p "${basedir}/fedora/${fedoraver/fedora/}/${arch}"
     cd "${basedir}/fedora/${fedoraver/fedora/}/${arch}" || exiterr "no ${fedoraver} dir found"
 
     info "downloading ${repository01} information"
