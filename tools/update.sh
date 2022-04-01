@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# vim: tabstop=4 shiftwidth=4 expandtab
+
 echo "Updating BTF archives..."
 
 ##
@@ -11,7 +13,7 @@ echo "Updating BTF archives..."
 
 basedir=$(dirname "${0}")
 if [ "${basedir}" == "." ]; then
-	basedir=$(pwd)
+    basedir=$(pwd)
 fi
 basedir=$basedir/../archive/
 
@@ -20,21 +22,23 @@ basedir=$basedir/../archive/
 ##
 
 exiterr() {
-	echo ERROR: "${@}"
-	exit 1
+    echo ERROR: "${@}"
+    exit 1
 }
 
 warn() {
-	echo WARN: "${@}"
+    echo WARN: "${@}"
 }
 
 info() {
-	echo INFO: "${@}"
+    echo INFO: "${@}"
 }
 
 ###
 ### 1. UBUNTU (bionic, focal)
 ###
+
+for type in unsigned signed; do
 
 for arch in x86_64 arm64; do
 
@@ -56,34 +60,28 @@ case "${ubuntuver}" in
     ;;
 esac
 
-for kernelver in $kernelversions; do
+for kernelver in ${kernelversions[@]}; do
 
-    if [ -z "${2}" ] || [ "${2}" != "${kernelver}" ]; then
+    if [ "$2" != "" ] && [ $2 != "$kernelver" ]; then
         continue
     fi
 
-    case "${ubuntuver}" in
-    "bionic")
-        regex="(linux-image-unsigned-$kernelver-.*-(generic|azure|gke|gcp)-dbgsym|linux-image-$kernelver-.*-aws-dbgsym)"
-        ;;
-    "focal")
-        regex="(linux-image-unsigned-$kernelver-.*-(generic|azure|gke|gcp)-dbgsym|linux-image-$kernelver-.*-aws-dbgsym)"
-        ;;
-    *)
-        continue
-        ;;
-    esac
+    if [ "${type}" == "signed" ]; then
+        regex="linux-image-$kernelver-.*-(generic|azure|gke|gcp|aws)-dbgsym"
+    else
+        regex="linux-image-unsigned-$kernelver-.*-(generic|azure|gke|gcp|aws)-dbgsym"
+    fi
 
     case "${arch}" in
     "x86_64")
         altarch="amd64"
-	;;
+    ;;
     "arm64")
-	altarch="arm64"
-	;;
+        altarch="arm64"
+    ;;
     *)
-	exiterr "could not find architecture"
-	;;
+    exiterr "could not find architecture"
+    ;;
     esac
 
     origdir=$(pwd)
@@ -104,60 +102,61 @@ for kernelver in $kernelversions; do
 
     grep "Package:" packages | sed 's:Package\: ::g' | sort | while read -r package; do
 
-	    filepath=$(grep -A1 "${package}" packages | grep -v "^Package: " | sed 's:Filename\: ::g')
-	    url="${repository}/${filepath}"
-	    filename=$(basename "${filepath}")
-	    version=$(echo "${filename}" | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
+        filepath=$(grep -A1 "${package}" packages | grep -v "^Package: " | sed 's:Filename\: ::g')
+        url="${repository}/${filepath}"
+        filename=$(basename "${filepath}")
+        version=$(echo "${filename}" | sed 's:linux-image-::g' | sed 's:-dbgsym.*::g' | sed 's:unsigned-::g')
 
-	    echo URL: "${url}"
-	    echo FILEPATH: "${filepath}"
-	    echo FILENAME: "${filename}"
-	    echo VERSION: "${version}"
+        echo URL: "${url}"
+        echo FILEPATH: "${filepath}"
+        echo FILENAME: "${filename}"
+        echo VERSION: "${version}"
 
-	    if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
-	    	info "file ${version}.btf already exists"
-	    	continue
-	    fi
+        if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+            info "file ${version}.btf already exists"
+            continue
+        fi
 
-	    if [ ! -f "${version}.ddeb" ]; then
-	    	curl -4 "${url}" -o ${version}.ddeb
-	    	if [ ! -f "${version}.ddeb" ]
-	    	then
-	    		warn "${version}.ddeb could not be downloaded"
-	    		continue
-	    	fi
-	    fi
+        if [ ! -f "${version}.ddeb" ]; then
+            curl -4 "${url}" -o ${version}.ddeb
+            if [ ! -f "${version}.ddeb" ]
+            then
+                warn "${version}.ddeb could not be downloaded"
+                continue
+            fi
+        fi
 
-	    # extract vmlinux file from ddeb package
-	    dpkg --fsys-tarfile "${version}.ddeb" | tar xvf - "./usr/lib/debug/boot/vmlinux-${version}" || \
-	    {
-	        warn "could not deal with ${version}, cleaning and moving on..."
-	        rm -rf "${basedir}/ubuntu/${ubuntuver}/${arch}/usr"
-	        rm -rf "${version}.ddeb"
-		touch "${version}.failed"
-	        continue
-	    }
-
-	    mv "./usr/lib/debug/boot/vmlinux-${version}" "./${version}.vmlinux" || \
-	    {
-	        warn "could not rename vmlinux ${version}, cleaning and moving on..."
-	        rm -rf "${basedir}/ubuntu/${ubuntuver}/${arch}/usr"
-	        rm -rf "${version}.ddeb"
-		touch "${version}.failed"
-	        continue
-
+        # extract vmlinux file from ddeb package
+        dpkg --fsys-tarfile "${version}.ddeb" | tar xvf - "./usr/lib/debug/boot/vmlinux-${version}" || \
+        {
+            warn "could not deal with ${version}, cleaning and moving on..."
+            rm -rf "${basedir}/ubuntu/${ubuntuver}/${arch}/usr"
+            rm -rf "${version}.ddeb"
+            if [ "${type}" == "signed" ]; then # maybe correct one is unsigned
+                touch "${version}.failed"
+            fi
+            continue
         }
 
-	    rm -rf "./usr"
+        mv "./usr/lib/debug/boot/vmlinux-${version}" "./${version}.vmlinux" || \
+        {
+            warn "could not rename vmlinux ${version}, cleaning and moving on..."
+            rm -rf "${basedir}/ubuntu/${ubuntuver}/${arch}/usr"
+            rm -rf "${version}.ddeb"
+            touch "${version}.failed" # this is likely an error indeed
+            continue
+        }
 
-	    pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
-	    # pahole "./${version}.btf" > "${version}.txt"
-	    tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+        rm -rf "./usr"
+
+        pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+        # pahole "./${version}.btf" > "${version}.txt"
+        tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
 
         rm "${version}.ddeb"
-	    rm "${version}.btf"
+        rm "${version}.btf"
         # rm "${version}.txt"
-	    rm "${version}.vmlinux"
+        rm "${version}.vmlinux"
 
     done
 
@@ -170,6 +169,8 @@ done # kernelver
 done
 
 done # arch
+
+done # type (signed/unsigned)
 
 ###
 ### 2. CENTOS (centos7, centos8)
@@ -186,13 +187,13 @@ for centosver in centos7 centos8; do
     case "${arch}" in
     "x86_64")
         altarch="x86_64"
-	;;
+    ;;
     "arm64")
-	altarch="aarch64"
-	;;
+    altarch="aarch64"
+    ;;
     *)
-	exiterr "could not find architecture"
-	;;
+    exiterr "could not find architecture"
+    ;;
     esac
 
     centosrel=$1
@@ -235,7 +236,7 @@ for centosver in centos7 centos8; do
           continue
         fi
 
-	curl -4 "${url}" -o ${version}.rpm
+    curl -4 "${url}" -o ${version}.rpm
         if [ ! -f "${version}.rpm" ]; then
           warn "${version}.rpm could not be downloaded"
           continue
@@ -246,11 +247,11 @@ for centosver in centos7 centos8; do
         rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
         {
             warn "could not deal with ${version}, cleaning and moving on..."
-	        rm -rf "${basedir}/centos/${centosver/centos/}/${arch}/usr"
-	        rm -rf "${version}.rpm"
-	        rm -rf "${version}.vmlinux"
-		touch "${version}.failed"
-	        continue
+            rm -rf "${basedir}/centos/${centosver/centos/}/${arch}/usr"
+            rm -rf "${version}.rpm"
+            rm -rf "${version}.vmlinux"
+        touch "${version}.failed"
+            continue
         }
 
         # generate BTF raw file from DWARF data
@@ -290,13 +291,13 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
     case "${arch}" in
     "x86_64")
         altarch="x86_64"
-	;;
+    ;;
     "arm64")
-	altarch="aarch64"
-	;;
+    altarch="aarch64"
+    ;;
     *)
-	exiterr "could not find architecture"
-	;;
+    exiterr "could not find architecture"
+    ;;
     esac
 
     origdir=$(pwd)
@@ -344,7 +345,7 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
           continue
         fi
 
-	curl -4 "${url}" -o ${version}.rpm
+    curl -4 "${url}" -o ${version}.rpm
         if [ ! -f "${version}.rpm" ]; then
           warn "${version}.rpm could not be downloaded"
           continue
@@ -355,11 +356,11 @@ for fedoraver in fedora29 fedora30 fedora31 fedora32 fedora33 fedora34; do
         rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
         {
             warn "could not deal with ${version}, cleaning and moving on..."
-	        rm -rf "${basedir}/fedora/${fedoraver/fedora/}/${arch}/usr"
-	        rm -rf "${version}.rpm"
-	        rm -rf "${version}.vmlinux"
-		touch "${version}.failed"
-	        continue
+            rm -rf "${basedir}/fedora/${fedoraver/fedora/}/${arch}/usr"
+            rm -rf "${version}.rpm"
+            rm -rf "${version}.vmlinux"
+        touch "${version}.failed"
+            continue
         }
 
         # generate BTF raw file from DWARF data
@@ -571,6 +572,7 @@ for debianver in stretch buster bullseye; do
             rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
             rm -rf "${version}.ddeb"
             touch "${version}.failed"
+            bash
             continue
         }
 
