@@ -458,7 +458,7 @@ After local relocations are done, the eBPF object isn't ready yet to be loaded. 
 
 When compiling CO-RE (Compile Once - Run Everywhere) BPF architecture objects, LLVM BPF backend records each relocation in an **ELF structure** containing only relocation information. Those structures are placed in the correspondent RELO section (.BTF.ext) so they can be used by libbpf during load time.
 
-> This is only possible thanks to [this feature](https://clang.llvm.org/btfgen-internals/LanguageExtensions.html#builtin-preserve-access-index) called **builtin\_preserve\_access\_index** (used by bpf\_core\_read() helper function). By using this keyword, when accessing a kernel pointer, you are instructing LLVM to **keep the relocation information into the generated ELF file** so the **kernels where the BPF object will run knows how to relocate the symbols ** 
+> This is only possible thanks to [this feature](https://clang.llvm.org/docs/LanguageExtensions.html#builtin-preserve-access-index) called **builtin\_preserve\_access\_index** (used by bpf\_core\_read() helper function). By using this keyword, when accessing a kernel pointer, you are instructing LLVM to **keep the relocation information into the generated ELF file** so the **kernels where the BPF object will run knows how to relocate the symbols** 
 
 Example of a header file:
 
@@ -1047,7 +1047,7 @@ Other great links that might be worth reading are:
 3. [BCC to libbpf conversion guide](https://nakryiko.com/posts/bcc-to-libbpf-howto-guide/) (if you're coming from BCC)
 4. [Building BPF applications with libbpf-bootstrap](https://nakryiko.com/posts/libbpf-bootstrap/)
 5. [BPF Design FAQ](https://01.org/linuxgraphics/gfx-btfgen-internals/drm/bpf/bpf_design_QA.html)
-6. [eBPF features per kernel version](https://github.com/iovisor/bcc/blob/master/btfgen-internals/kernel-versions.md#program-types)
+6. [eBPF features per kernel version](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md#program-types)
 7. [BTFHUB code example](https://github.com/aquasecurity/btfhub/tree/main/example)
 8. [BCC's libbpf-tools directory](https://github.com/iovisor/bcc/tree/master/libbpf-tools)
 
