@@ -523,7 +523,7 @@ Here I'd like to point important ideas of how libbpf does the relocations. This 
 
 When loading an eBPF object, the execution path until the CO-RE relocation logic is done is:
 
-`bpf_prog_log_xattr()` or `bpf_object__load_skeleton()`
+`bpf_prog_load_xattr()` or `bpf_object__load_skeleton()`
  - `bpf_object__load_xattr()`
 	- `bpf_object__relocate()`
 		- **`bpf_object__relocate_core()`**
