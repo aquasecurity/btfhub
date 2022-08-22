@@ -604,4 +604,123 @@ for arch in x86_64 arm64; do
 
 done # arch
 
+###
+### 6. ORACLE LINUX (ol7)
+###
+
+for arch in x86_64 arm64; do
+
+    for olver in ol7; do
+
+        if [ "${1}" != "${olver}" ]; then
+            continue
+        fi
+
+        case "${arch}" in
+            "x86_64")
+                altarch="x86_64"
+            ;;
+            "arm64")
+                altarch="aarch64"
+            ;;
+            *)
+                exiterr "could not find architecture"
+            ;;
+        esac
+
+        regex="kernel(-uek)?-debuginfo-[0-9].*${altarch}.rpm"
+
+        olrel=$1
+        origdir=$(pwd)
+
+        case "${olver}" in
+            "ol7")
+                repository="https://oss.oracle.com/ol7/debuginfo/"
+            ;;
+        esac
+
+        mkdir -p "${basedir}/oracle-linux/${olver}/${arch}"
+        cd "${basedir}/oracle-linux/${olver}/${arch}" || exiterr "no ${olver} dir found"
+
+        info "downloading ${repository} information"
+        lynx -dump -listonly ${repository} | tail -n+4 > "${olrel}"
+        [[ ! -f ${olrel} ]] && exiterr "no ${olrel} packages file found"
+        grep -E "${regex}" "${olrel}" | awk '{print $2}' >temp
+        mv temp packages
+        rm "${olrel}"
+
+        sort packages | while read -r line; do
+
+            url=${line}
+            filename=$(basename "${line}")
+            # shellcheck disable=SC2001
+            version=$(echo "${filename}" | sed -r 's:(kernel(-uek)?-debuginfo-)(.*).rpm:\3:g')
+            shortversion=$(echo "${version}" | sed -r 's:([0-9]+(\.[0-9]+){2}-[0-9]+(\.[0-9]+){0,3}).*:\1:g')
+
+            # "max" versions have the right-most decimal decremented by 1 because the version check is inclusive,
+            # this will prevent inclusion of those versions because they already provide BTFs
+            case $version in
+                *"uek"*)
+                    kernelmin="4.14.35-1902.300.11" #uek begin eBPF support
+                    kernelmax="5.4.17-2136.301.1.1" #uek begin BTF support version -1
+                ;;
+                *)
+                    kernelmin="3.10.0-1127" #ol kernel begin eBPF support
+                    kernelmax="3.10.0-1160.49.0" #ol kernel begin BTF support version -1
+                ;;
+            esac
+
+            sorted_vers="$(printf '%s\n' "$kernelmin" "$shortversion" "$kernelmax" | sort -V)"
+            if ! [[ "$(echo "$sorted_vers" | head -n1)" = "$kernelmin" && "$(echo "$sorted_vers" | tail -n1)" = "$kernelmax" ]]; then
+                #kernel doesn't support eBPF or already provides BTFs
+                continue
+            fi
+
+            echo URL: "${url}"
+            echo FILENAME: "${filename}"
+            echo VERSION: "${version}"
+
+            if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+                info "file ${version}.btf already exists"
+                continue
+            fi
+
+            curl -4 "${url}" -o ${version}.rpm
+            if [ ! -f "${version}.rpm" ]; then
+                warn "${version}.rpm could not be downloaded"
+                continue
+            fi
+
+            vmlinux=.$(rpmquery -qlp "${version}.rpm" 2>&1 | grep vmlinux)
+            info "extracting vmlinux from: ${version}.rpm"
+            rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
+            {
+                warn "could not deal with ${version}, cleaning and moving on..."
+                rm -rf "${basedir}/oracle-linux/${olver}/${arch}/usr"
+                rm -rf "${version}.rpm"
+                rm -rf "${version}.vmlinux"
+                touch "${version}.failed"
+                continue
+            }
+
+            # generate BTF raw file from DWARF data
+            info "generating BTF file: ${version}.btf"
+            pahole --btf_encode_detached="${version}.btf" "${version}.vmlinux"
+            # pahole "${version}.btf" > "${version}.txt"
+            tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+
+            rm "${version}.rpm"
+            rm "${version}.btf"
+            # rm "${version}.txt"
+            rm "${version}.vmlinux"
+
+        done
+
+        rm -f packages
+        cd "${origdir}" >/dev/null || exit
+
+    done #olver
+
+done #arch
+
 exit 0
