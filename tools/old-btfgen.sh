@@ -7,14 +7,14 @@ while getopts ":a:o:" opt; do
         a)
             a=${OPTARG}
             [[ "${a}" != "x86_64" && "${a}" != "arm64" ]] && usage
-            ;;
-	o)
-	    o=${OPTARG}
-	    [[ ! -f ${o} ]] && { echo "error: could not find bpf object: ${o}"; usage; }
-	    ;;
+        ;;
+        o)
+            o=${OPTARG}
+            [[ ! -f ${o} ]] && { echo "error: could not find bpf object: ${o}"; usage; }
+        ;;
         *)
             usage
-            ;;
+        ;;
     esac
 done
 shift $((OPTIND-1))
@@ -25,25 +25,25 @@ fi
 
 basedir=$(dirname ${0})/..
 if [ "${basedir}" == "." ]; then
-	basedir=$(pwd)/..
+    basedir=$(pwd)/..
 fi
 
 if [ ! -d ${basedir}/archive ]; then
-	echo "error: could not find archive directory"
-	exit 1
+    echo "error: could not find archive directory"
+    exit 1
 fi
 
 cd ${basedir}
 
 btfgen=./tools/bin/btfgen.$(uname -m)
 if [ ! -x "${btfgen}" ]; then
-	echo "error: could not find btfgen tool"
-	exit 1
+    echo "error: could not find btfgen tool"
+    exit 1
 fi
 
 for dir in $(find ./archive/ -iregex ".*${a}.*" -type d | sed 's:\.\/archive\/::g'| sort -u); do
-	echo $dir
-	mkdir -p custom-archive/${dir}
-	ls ./archive/${dir}/*.btf > /dev/null 2>&1 || continue
-	${btfgen} -p -i ./archive/${dir} -o ./custom-archive/${dir} --object ${o}
+    echo $dir
+    mkdir -p custom-archive/${dir}
+    ls ./archive/${dir}/*.btf > /dev/null 2>&1 || continue
+    ${btfgen} -p -i ./archive/${dir} -o ./custom-archive/${dir} --object ${o}
 done
