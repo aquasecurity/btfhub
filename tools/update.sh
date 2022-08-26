@@ -9,7 +9,7 @@ echo "Updating BTF archives..."
 ## That's it: The tree should focus in arranging BTF data.
 ##
 
-## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon2|stretch|buster|bullseye]
+## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye]
 
 basedir=$(dirname "${0}")
 if [ "${basedir}" == "." ]; then
@@ -384,12 +384,12 @@ for arch in x86_64 arm64; do
 done #arch
 
 ###
-### 4. amazon2
+### 4. amazon (amazon1, amazon2)
 ###
 
 for arch in x86_64 arm64; do
 
-    for amazonver in amazon2; do
+    for amazonver in amazon1 amazon2; do
 
         if [ "${1}" != "${amazonver}" ]; then
             continue
@@ -408,19 +408,41 @@ for arch in x86_64 arm64; do
         esac
 
         origdir=$(pwd)
-        repository=https://amazonlinux-2-repos-us-east-2.s3.dualstack.us-east-2.amazonaws.com/2/core/latest/debuginfo/${altarch}/mirror.list
+        case "${amazonver}" in
+            "amazon1")
+                if [ "${arch}" = "arm64" ]; then
+                    continue
+                fi
+                ver="1"
+                repodataurl=http://packages.us-east-1.amazonaws.com/2018.03/updates/85446a8a5f59/debuginfo/x86_64
+                repofilesurl="${repodataurl}"
+                archiver="bzip2"
+                archive="bz2"
+            ;;
+            "amazon2")
+                ver="2"
+                repository=https://amazonlinux-2-repos-us-east-2.s3.dualstack.us-east-2.amazonaws.com/2/core/latest/debuginfo/${altarch}/mirror.list
+                archiver="gzip"
+                archive="gz"
+                info "downloading ${repository} mirror list"
+                wget $repository
+                info "downloading ${repository} information"
+                repodataurl=$(head -1 mirror.list)
+                repofilesurl=http://amazonlinux.us-east-1.amazonaws.com
+                rm -f mirror.list
+            ;;
+            *)
+                exiterr "unknown amazon linux version"
+            ;;
+        esac
 
-        mkdir -p "${basedir}/amzn/2/${arch}"
-        cd "${basedir}/amzn/2/${arch}" || exiterr "no ${amazonver} dir found"
+        mkdir -p "${basedir}/amzn/${ver}/${arch}"
+        cd "${basedir}/amzn/${ver}/${arch}" || exiterr "no ${amazonver} dir found"
 
-        info "downloading ${repository} mirror list"
-        wget $repository
-        info "downloading ${repository} information"
-        wget "$(head -1 mirror.list)/repodata/primary.sqlite.gz"
-        rm -f mirror.list
+        wget "${repodataurl}/repodata/primary.sqlite.${archive}"
 
-        gzip -d primary.sqlite.gz
-        rm -f primary.sqlite.gz
+        $archiver -d "primary.sqlite.${archive}"
+        rm -f "primary.sqlite.${archive}"
 
         packages=$(sqlite3 primary.sqlite "select location_href FROM packages WHERE name like 'kernel-debuginfo%' and name not like '%common%'" | sed 's#\.\./##g')
         rm -f primary.sqlite
@@ -440,7 +462,7 @@ for arch in x86_64 arm64; do
                 continue
             fi
 
-            curl -4 "http://amazonlinux.us-east-1.amazonaws.com/${url}" -o ${version}.rpm
+            curl -4 "${repofilesurl}/${url}" -o ${version}.rpm
             if [ ! -f "${version}.rpm" ]; then
                 warn "${version}.rpm could not be downloaded"
                 continue
@@ -451,7 +473,7 @@ for arch in x86_64 arm64; do
             rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
             {
                 warn "could not deal with ${version}, cleaning and moving on..."
-                rm -rf "${basedir}/amzn/2/${arch}/usr"
+                rm -rf "${basedir}/amzn/${ver}/${arch}/usr"
                 rm -rf "${version}.rpm"
                 rm -rf "${version}.vmlinux"
                 touch "${version}.failed"
@@ -471,7 +493,7 @@ for arch in x86_64 arm64; do
 
         rm -f packages
         cd "${origdir}" >/dev/null || exit
-    done
+    done #amazonver
 
 done #arch
 
