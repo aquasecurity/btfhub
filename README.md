@@ -69,8 +69,8 @@ current status on **eBPF** and **BTF** support.
    support to legacy kernels to your eBPF project. The uncompressed full BTF
    files, from the [BTFhub-Archive repository](https://github.com/aquasecurity/btfhub-archive),
    should feed libbpf used by your eBPF project, just like showed in
-   [this C example](https://github.com/aquasecurity/btfhub/blob/main/example/example.c#L177)
-   or [this Go example](https://github.com/aquasecurity/btfhub/blob/main/example/example.go#L88).
+   [this C example](https://github.com/aquasecurity/btfhub/blob/26ec6014bd7340c3894f486db57a1ef0a712a3b0/example/example.c#L189)
+   or [this Go example](https://github.com/aquasecurity/btfhub/blob/26ec6014bd7340c3894f486db57a1ef0a712a3b0/example/example.go#L88).
 
 2. You may use the [BTFgen tool to create smaller BTF
    files](docs/generating-tailored-btfs.md), so you can embed them into your
