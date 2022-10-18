@@ -632,7 +632,7 @@ done # arch
 
 for arch in x86_64 arm64; do
 
-    for olver in ol7; do
+    for olver in ol7 ol8; do
 
         if [ "${1}" != "${olver}" ]; then
             continue
@@ -659,6 +659,10 @@ for arch in x86_64 arm64; do
             "ol7")
                 ver="7"
                 repository="https://oss.oracle.com/ol7/debuginfo/"
+            ;;
+            "ol8")
+                ver="8"
+                repository="https://oss.oracle.com/ol8/debuginfo/"
             ;;
         esac
 
