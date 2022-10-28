@@ -9,7 +9,7 @@ echo "Updating BTF archives..."
 ## That's it: The tree should focus in arranging BTF data.
 ##
 
-## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye]
+## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye|ol7]
 
 basedir=$(dirname "${0}")
 if [ "${basedir}" == "." ]; then
@@ -413,7 +413,7 @@ for arch in x86_64 arm64; do
                 if [ "${arch}" = "arm64" ]; then
                     continue
                 fi
-                ver="1"
+                ver="2018"
                 repodataurl=http://packages.us-east-1.amazonaws.com/2018.03/updates/85446a8a5f59/debuginfo/x86_64
                 repofilesurl="${repodataurl}"
                 archiver="bzip2"
@@ -657,12 +657,13 @@ for arch in x86_64 arm64; do
 
         case "${olver}" in
             "ol7")
+                ver="7"
                 repository="https://oss.oracle.com/ol7/debuginfo/"
             ;;
         esac
 
-        mkdir -p "${basedir}/oracle-linux/${olver}/${arch}"
-        cd "${basedir}/oracle-linux/${olver}/${arch}" || exiterr "no ${olver} dir found"
+        mkdir -p "${basedir}/ol/${ver}/${arch}"
+        cd "${basedir}/ol/${ver}/${arch}" || exiterr "no ${ver} dir found"
 
         info "downloading ${repository} information"
         lynx -dump -listonly ${repository} | tail -n+4 > "${olrel}"
@@ -718,7 +719,7 @@ for arch in x86_64 arm64; do
             rpm2cpio "${version}.rpm" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
             {
                 warn "could not deal with ${version}, cleaning and moving on..."
-                rm -rf "${basedir}/oracle-linux/${olver}/${arch}/usr"
+                rm -rf "${basedir}/ol/${ver}/${arch}/usr"
                 rm -rf "${version}.rpm"
                 rm -rf "${version}.vmlinux"
                 touch "${version}.failed"
