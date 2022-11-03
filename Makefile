@@ -35,7 +35,8 @@ update:
 		centos7 \
 		stretch \
 		buster \
-		amazon2; \
+		amazon2 \
+		ol7; \
 	do \
 		./tools/update.sh $$distro; \
 	done
