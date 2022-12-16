@@ -96,3 +96,12 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 
 > **Notes**: Bionic HWE, Focal and Focal HWE kernels need this HUB. All other
 > future Ubuntu releases will have BPF & BTF support enabled.
+
+### [Debian](https://en.wikipedia.org/wiki/Debian_version_history#Release_table)
+
+| Debian        | Release Date | Kernel  | BPF | BTF | HUB |
+|---------------|--------------|---------|-----|-----|-----|
+| 9 (Stretch)   | 2017-06-17   | 4.9.0   |  Y  |  -  |  Y  |
+| 10 (Buster)   | 2019-07-06   | 4.19.0  |  Y  |  -  |  Y  |
+| 11 (Bullseye) | 2021-08-14   | 5.10.0  |  Y  |  Y  |  -  |
+

@@ -539,6 +539,7 @@ for arch in x86_64 arm64; do
 
         origdir=$(pwd)
         repository="http://ftp.debian.org/debian"
+        secrepo="http://security.debian.org/debian-security"
 
         mkdir -p "${basedir}/debian/${debian_number}/${arch}"
         cd "${basedir}/debian/${debian_number}/${arch}" || exiterr "no ${debian_number} dir found"
@@ -546,11 +547,13 @@ for arch in x86_64 arm64; do
         wget ${repository}/dists/${debianver}/main/binary-${altarch}/Packages.gz -O ${debianver}.gz
         if [ ${debian_number} -lt 11 ]; then
             wget ${repository}/dists/${debianver}-updates/main/binary-${altarch}/Packages.gz -O ${debianver}-updates.gz
+            wget ${secrepo}/dists/${debianver}/updates/main/binary-${altarch}/Packages.gz -O ${debianver}-security.gz
         fi
 
         [ ! -f ${debianver}.gz ] && exiterr "no ${debianver}.gz packages file found"
         if [ ${debian_number} -lt 11 ]; then
             [ ! -f ${debianver}-updates.gz ] && exiterr "no ${debianver}-updates.gz packages file found"
+            [ ! -f ${debianver}-security.gz ] && exiterr "no ${debianver}-security.gz packages file found"
         fi
 
         gzip -d ${debianver}.gz
@@ -558,68 +561,81 @@ for arch in x86_64 arm64; do
         if [ ${debian_number} -lt 11 ]; then
             gzip -d ${debianver}-updates.gz
             grep -E '^(Package|Filename):' ${debianver}-updates | grep --no-group-separator -A1 -E "Package: ${regex}" >> packages
+            gzip -d ${debianver}-security.gz
+            grep -E '^(Package|Filename):' ${debianver}-security | grep --no-group-separator -A1 -E "Package: ${regex}" > security-packages
         fi
-        rm -f ${debianver} ${debianver}-updates
+        rm -f ${debianver} ${debianver}-updates ${debianver}-security
 
-        grep "Package:" packages | sed 's:Package\: ::g' | sort | while read -r package; do
+        for pkgfile in security-packages packages; do
+            case "${pkgfile}" in
+                "security-packages")
+                    baseurl="${secrepo}"
+                ;;
+                "packages")
+                    baseurl="${repository}"
+                ;;
+            esac
 
-            filepath=$(grep -A1 "${package}" packages | grep -v "^Package: " | sed 's:Filename\: ::g')
-            url="${repository}/${filepath}"
-            filename=$(basename "${filepath}")
-            version=$(echo "${filename}" | sed 's:linux-image-::g' | sed 's:-dbg.*::g' | sed 's:unsigned-::g')
+            grep "Package:" ${pkgfile} | sed 's:Package\: ::g' | sort | while read -r package; do
 
-            echo URL: "${url}"
-            echo FILEPATH: "${filepath}"
-            echo FILENAME: "${filename}"
-            echo VERSION: "${version}"
+                filepath=$(grep -A1 "^Package: ${package}" "${pkgfile}" | grep -v "^Package: " | sed 's:Filename\: ::g')
+                url="${baseurl}/${filepath}"
+                filename=$(basename "${filepath}")
+                version=$(echo "${filename}" | sed 's:linux-image-::g' | sed 's:-dbg.*::g' | sed 's:unsigned-::g')
 
-            if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
-                info "file ${version}.btf already exists"
-                continue
-            fi
+                echo URL: "${url}"
+                echo FILEPATH: "${filepath}"
+                echo FILENAME: "${filename}"
+                echo VERSION: "${version}"
 
-            if [ ! -f "${version}.ddeb" ]; then
-                curl -4 "${url}" -o ${version}.ddeb
-                if [ ! -f "${version}.ddeb" ]
-                then
-                    warn "${version}.ddeb could not be downloaded"
+                if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+                    info "file ${version}.btf already exists"
                     continue
                 fi
-            fi
 
-            # extract vmlinux file from ddeb package
-            dpkg --fsys-tarfile "${version}.ddeb" | tar xvf - "./usr/lib/debug/boot/vmlinux-${version}" || \
-            {
-                warn "could not deal with ${version}, cleaning and moving on..."
-                rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
-                rm -rf "${version}.ddeb"
-                touch "${version}.failed"
-                bash
-                continue
-            }
+                if [ ! -f "${version}.ddeb" ]; then
+                    curl -4 "${url}" -o "${version}.ddeb"
+                    if [ ! -f "${version}.ddeb" ]
+                    then
+                        warn "${version}.ddeb could not be downloaded"
+                        continue
+                    fi
+                fi
 
-            mv "./usr/lib/debug/boot/vmlinux-${version}" "./${version}.vmlinux" || \
-            {
-                warn "could not rename vmlinux ${version}, cleaning and moving on..."
-                rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
-                rm -rf "${version}.ddeb"
-                touch "${version}.failed"
-                continue
+                # extract vmlinux file from ddeb package
+                dpkg --fsys-tarfile "${version}.ddeb" | tar xvf - "./usr/lib/debug/boot/vmlinux-${version}" || \
+                {
+                    warn "could not deal with ${version}, cleaning and moving on..."
+                    rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
+                    rm -rf "${version}.ddeb"
+                    touch "${version}.failed"
+                    bash
+                    continue
+                }
 
-            }
+                mv "./usr/lib/debug/boot/vmlinux-${version}" "./${version}.vmlinux" || \
+                {
+                    warn "could not rename vmlinux ${version}, cleaning and moving on..."
+                    rm -rf "${basedir}/debian/${debian_number}/${arch}/usr"
+                    rm -rf "${version}.ddeb"
+                    touch "${version}.failed"
+                    continue
 
-            rm -rf "./usr/lib/debug/boot"
+                }
 
-            pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
-            tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+                rm -rf "./usr/lib/debug/boot"
 
-            rm "${version}.ddeb"
-            rm "${version}.btf"
-            rm "${version}.vmlinux"
+                pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+                tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
 
+                rm "${version}.ddeb"
+                rm "${version}.btf"
+                rm "${version}.vmlinux"
+
+            done
         done
 
-        rm -f packages
+        rm -f packages security-packages
         cd "${origdir}" >/dev/null || exit
 
     done
