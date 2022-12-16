@@ -1,8 +1,0 @@
-example-c-dynamic
-example-c-static
-example-dynamic
-example-static
-example.bpf.o
-example.o
-output/
-vmlinux.h
