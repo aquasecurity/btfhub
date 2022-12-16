@@ -42,7 +42,3 @@ update:
 	done
 	./tools/update.sh bionic 4.15.0
 	rsync -av ./archive/ btfhub-archive-repo --exclude=.gitignore
-
-test:
-	bats test/update.bats
-	bats test/btfgen.bats
