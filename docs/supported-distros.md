@@ -103,3 +103,12 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 |--------|--------------|-------------|------------|-----|-----|-----|
 | 7.8    | 2020-04-08   | 3.10.0-1127 | 4.14.35    |  Y  |  -  |  Y  |
 | 7.9    | 2020-10-07   | 3.10.0-1160 | 5.4.17     |  Y  |  -  |  Y  |
+
+### [Debian](https://en.wikipedia.org/wiki/Debian_version_history#Release_table)
+
+| Debian        | Release Date | Kernel  | BPF | BTF | HUB |
+|---------------|--------------|---------|-----|-----|-----|
+| 9 (Stretch)   | 2017-06-17   | 4.9.0   |  Y  |  -  |  Y  |
+| 10 (Buster)   | 2019-07-06   | 4.19.0  |  Y  |  -  |  Y  |
+| 11 (Bullseye) | 2021-08-14   | 5.10.0  |  Y  |  Y  |  -  |
+
