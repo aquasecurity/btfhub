@@ -96,3 +96,10 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 
 > **Notes**: Bionic HWE, Focal and Focal HWE kernels need this HUB. All other
 > future Ubuntu releases will have BPF & BTF support enabled.
+
+### [Oracle Linux](https://en.wikipedia.org/wiki/Oracle_Linux#Software_updates_and_version_history)
+
+| Oracle | Release Date | RH Kernel   | UEK Kernel | BPF | BTF | HUB |
+|--------|--------------|-------------|------------|-----|-----|-----|
+| 7.8    | 2020-04-08   | 3.10.0-1127 | 4.14.35    |  Y  |  -  |  Y  |
+| 7.9    | 2020-10-07   | 3.10.0-1160 | 5.4.17     |  Y  |  -  |  Y  |
