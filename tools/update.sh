@@ -42,13 +42,16 @@ for type in unsigned signed; do
 
     for arch in x86_64 arm64; do
 
-        for ubuntuver in bionic focal; do
+        for ubuntuver in xenial bionic focal; do
 
             if [ "${1}" != "${ubuntuver}" ]; then
                 continue
             fi
 
             case "${ubuntuver}" in
+                "xenial")
+                    kernelversions=("4.4.0" "4.15.0")
+                ;;
                 "bionic")
                     kernelversions=("4.15.0" "5.4.0")
                 ;;
