@@ -9,7 +9,7 @@ echo "Updating BTF archives..."
 ## That's it: The tree should focus in arranging BTF data.
 ##
 
-## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye|ol7]
+## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye|ol7|rhel7|rhel8]
 
 basedir=$(dirname "${0}")
 if [ "${basedir}" == "." ]; then
@@ -759,6 +759,118 @@ for arch in x86_64 arm64; do
         cd "${origdir}" >/dev/null || exit
 
     done #olver
+
+done #arch
+
+###
+### 7. RHEL (rhel7, rhel8)
+###
+
+for arch in x86_64 arm64; do
+
+    for rhelver in rhel7 rhel8; do
+
+        if [ "${1}" != "${rhelver}" ]; then
+            continue
+        fi
+
+        case "${arch}" in
+            "x86_64")
+                altarch="x86_64"
+            ;;
+            "arm64")
+                altarch="aarch64"
+            ;;
+            *)
+                exiterr "could not find architecture"
+            ;;
+        esac
+
+        rhelrel=$1
+        origdir=$(pwd)
+
+        case "${rhelver}" in
+            "rhel7")
+                releasevers=("7.6" "7.7" "7.8" "7.9")
+            ;;
+            "rhel8")
+                releasevers=("8.1")
+            ;;
+        esac
+
+        regex="kernel-debuginfo-[0-9].*${altarch}"
+
+        mkdir -p "${basedir}/rhel/${rhelver/rhel/}/${arch}"
+        cd "${basedir}/rhel/${rhelver/rhel/}/${arch}" || exiterr "no ${rhelver} dir found"
+
+        for releasever in ${releasevers[@]}; do
+
+            if [ "$2" != "" ] && [ $2 != "$releasever" ]; then
+                continue
+            fi
+
+            sudo subscription-manager release --set=${releasever}
+            sudo yum search --showduplicates kernel-debuginfo > "${releasever}"
+            grep -E "${regex}" "${releasever}" | awk '{print $1}' >temp
+            mv temp packages
+            rm "${releasever}"
+
+            sort packages | while read -r line; do
+
+                package=${line}
+                filename="${package}.rpm"
+                version=$(echo "${package}" | sed 's:kernel-debuginfo-\(.*\):\1:g')
+
+                echo FILENAME: "${filename}"
+                echo VERSION: "${version}"
+
+                if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+                    info "file ${version}.btf already exists"
+                    continue
+                fi
+
+                sudo yum install -y --downloadonly --downloaddir=. "${package}"
+                if [ ! -f "${filename}" ]; then
+                    warn "${filename} could not be downloaded"
+                    continue
+                fi
+
+                vmlinux=.$(rpmquery -qlp "${filename}" 2>&1 | grep vmlinux)
+                echo "INFO: extracting vmlinux from: ${filename}"
+                rpm2cpio "${filename}" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
+                {
+                    warn "could not deal with ${version}, cleaning and moving on..."
+                    rm -rf "${basedir}/rhel/${rhelver/rhel/}/${arch}/usr"
+                    rm "${filename}"
+                    rm "kernel-debuginfo-common-${altarch}-${version}.rpm"
+                    rm "${version}.vmlinux"
+                    touch "${version}.failed"
+                    continue
+                }
+
+                objdump -h -j .BTF "${version}.vmlinux" 2>&1 >/dev/null && info ".BTF section already exists in ${version}.vmlinux" || \
+                {
+                    # generate BTF raw file from DWARF data
+                    echo "INFO: generating BTF file: ${version}.btf"
+                    pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+                    # pahole "${version}.btf" > "${version}.txt"
+                    tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+                    rm "${version}.btf"
+                }
+
+                rm "${filename}"
+                rm "kernel-debuginfo-common-${altarch}-${version}.rpm"
+                # rm "${version}.txt"
+                rm "${version}.vmlinux"
+
+            done
+
+            rm -f packages
+            cd "${origdir}" >/dev/null || exit
+
+        done #releasever
+
+    done #rhelver
 
 done #arch
 
