@@ -85,7 +85,9 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 
 | Ubuntu Ver | Num     | Release Date | Kernel  | BPF | BTF | HUB |
 |------------|---------|--------------|---------|-----|-----|-----|
-| Bionic     | 18.04.2 | 2018-04-26   | 4.15.0  |  -  |  -  |  -  |
+| Xenial     | 16.04.2 | 2016-04-21   | 4.4.0   |  Y  |  -  |  Y  |
+| Xenial HWE | -       | -            | 4.15.0  |  Y  |  -  |  Y  |
+| Bionic     | 18.04.2 | 2018-04-26   | 4.15.0  |  Y  |  -  |  Y  |
 | Bionic HWE | -       | -            | 5.4.0   |  Y  |  -  |  Y  |
 | Focal      | 20.04.2 | 2020-04-23   | 5.4.0   |  Y  |  -  |  Y  |
 | Focal HWE  | -       | -            | 5.8.0   |  Y  |  -  |  Y  |
