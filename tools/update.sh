@@ -53,7 +53,7 @@ for type in unsigned signed; do
                     kernelversions=("4.4.0" "4.15.0")
                 ;;
                 "bionic")
-                    kernelversions=("4.15.0" "5.4.0")
+                    kernelversions=("4.15.0" "4.18.0" "5.4.0")
                 ;;
                 "focal")
                     kernelversions=("5.4.0" "5.8.0" "5.11.0")
