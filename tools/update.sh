@@ -769,112 +769,116 @@ done #arch
 ### 7. RHEL (rhel7, rhel8)
 ###
 
-for arch in x86_64 arm64; do
+# must use machine arch
+altarch=$(uname -m)
+case "${altarch}" in
+    "x86_64")
+        arch="x86_64"
+    ;;
+    "aarch64")
+        arch="arm64"
+    ;;
+    *)
+        exiterr "could not find architecture"
+    ;;
+esac
 
-    for rhelver in rhel7 rhel8; do
+for rhelver in rhel7 rhel8; do
 
-        if [ "${1}" != "${rhelver}" ]; then
+    if [ "${1}" != "${rhelver}" ]; then
+        continue
+    fi
+
+    rhelrel=$1
+    origdir=$(pwd)
+
+    case "${rhelver}:${arch}" in
+        "rhel7:x86_64")
+            releasevers=("7.6" "7.7" "7.8" "7.9")
+        ;;
+        "rhel7:arm64")
+            releasevers=("7Server")
+        ;;
+        "rhel8:x86_64")
+            releasevers=("8.1")
+        ;;
+        "rhel8:arm64")
+            releasevers=("8.1")
+        ;;
+    esac
+
+    regex="kernel-debuginfo-[0-9].*${altarch}"
+
+    mkdir -p "${basedir}/rhel/${rhelver/rhel/}/${arch}"
+    cd "${basedir}/rhel/${rhelver/rhel/}/${arch}" || exiterr "no ${rhelver} dir found"
+
+    for releasever in ${releasevers[@]}; do
+
+        if [ "$2" != "" ] && [ $2 != "$releasever" ]; then
             continue
         fi
 
-        case "${arch}" in
-            "x86_64")
-                altarch="x86_64"
-            ;;
-            "arm64")
-                altarch="aarch64"
-            ;;
-            *)
-                exiterr "could not find architecture"
-            ;;
-        esac
+        sudo subscription-manager release --set=${releasever}
+        sudo yum search --showduplicates kernel-debuginfo > "${releasever}"
+        grep -E "${regex}" "${releasever}" | awk '{print $1}' >temp
+        mv temp packages
+        rm "${releasever}"
 
-        rhelrel=$1
-        origdir=$(pwd)
+        sort packages | while read -r line; do
 
-        case "${rhelver}" in
-            "rhel7")
-                releasevers=("7.6" "7.7" "7.8" "7.9")
-            ;;
-            "rhel8")
-                releasevers=("8.1")
-            ;;
-        esac
+            package=${line}
+            filename="${package}.rpm"
+            version=$(echo "${package}" | sed 's:kernel-debuginfo-\(.*\):\1:g')
 
-        regex="kernel-debuginfo-[0-9].*${altarch}"
+            echo FILENAME: "${filename}"
+            echo VERSION: "${version}"
 
-        mkdir -p "${basedir}/rhel/${rhelver/rhel/}/${arch}"
-        cd "${basedir}/rhel/${rhelver/rhel/}/${arch}" || exiterr "no ${rhelver} dir found"
-
-        for releasever in ${releasevers[@]}; do
-
-            if [ "$2" != "" ] && [ $2 != "$releasever" ]; then
+            if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
+                info "file ${version}.btf already exists"
                 continue
             fi
 
-            sudo subscription-manager release --set=${releasever}
-            sudo yum search --showduplicates kernel-debuginfo > "${releasever}"
-            grep -E "${regex}" "${releasever}" | awk '{print $1}' >temp
-            mv temp packages
-            rm "${releasever}"
+            sudo yum install -y --downloadonly --downloaddir=. "${package}"
+            if [ ! -f "${filename}" ]; then
+                warn "${filename} could not be downloaded"
+                continue
+            fi
 
-            sort packages | while read -r line; do
-
-                package=${line}
-                filename="${package}.rpm"
-                version=$(echo "${package}" | sed 's:kernel-debuginfo-\(.*\):\1:g')
-
-                echo FILENAME: "${filename}"
-                echo VERSION: "${version}"
-
-                if [ -f "${version}.btf.tar.xz" ] || [ -f "${version}.failed" ]; then
-                    info "file ${version}.btf already exists"
-                    continue
-                fi
-
-                sudo yum install -y --downloadonly --downloaddir=. "${package}"
-                if [ ! -f "${filename}" ]; then
-                    warn "${filename} could not be downloaded"
-                    continue
-                fi
-
-                vmlinux=.$(rpmquery -qlp "${filename}" 2>&1 | grep vmlinux)
-                echo "INFO: extracting vmlinux from: ${filename}"
-                rpm2cpio "${filename}" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
-                {
-                    warn "could not deal with ${version}, cleaning and moving on..."
-                    rm -rf "${basedir}/rhel/${rhelver/rhel/}/${arch}/usr"
-                    rm "${filename}"
-                    rm "kernel-debuginfo-common-${altarch}-${version}.rpm"
-                    rm "${version}.vmlinux"
-                    touch "${version}.failed"
-                    continue
-                }
-
-                objdump -h -j .BTF "${version}.vmlinux" 2>&1 >/dev/null && info ".BTF section already exists in ${version}.vmlinux" || \
-                {
-                    # generate BTF raw file from DWARF data
-                    echo "INFO: generating BTF file: ${version}.btf"
-                    pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
-                    # pahole "${version}.btf" > "${version}.txt"
-                    tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
-                    rm "${version}.btf"
-                }
-
+            vmlinux=.$(rpmquery -qlp "${filename}" 2>&1 | grep vmlinux)
+            echo "INFO: extracting vmlinux from: ${filename}"
+            rpm2cpio "${filename}" | cpio --to-stdout -i "${vmlinux}" > "./${version}.vmlinux" || \
+            {
+                warn "could not deal with ${version}, cleaning and moving on..."
+                rm -rf "${basedir}/rhel/${rhelver/rhel/}/${arch}/usr"
                 rm "${filename}"
                 rm "kernel-debuginfo-common-${altarch}-${version}.rpm"
-                # rm "${version}.txt"
                 rm "${version}.vmlinux"
+                touch "${version}.failed"
+                continue
+            }
 
-            done
+            objdump -h -j .BTF "${version}.vmlinux" 2>&1 >/dev/null && info ".BTF section already exists in ${version}.vmlinux" || \
+            {
+                # generate BTF raw file from DWARF data
+                echo "INFO: generating BTF file: ${version}.btf"
+                pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+                # pahole "${version}.btf" > "${version}.txt"
+                tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+                rm "${version}.btf"
+            }
 
-            rm -f packages
-            cd "${origdir}" >/dev/null || exit
+            rm "${filename}"
+            rm "kernel-debuginfo-common-${altarch}-${version}.rpm"
+            # rm "${version}.txt"
+            rm "${version}.vmlinux"
 
-        done #releasever
+        done
 
-    done #rhelver
+        rm -f packages
+        cd "${origdir}" >/dev/null || exit
 
-done #arch
+    done #releasever
+
+done #rhelver
 
 exit 0
