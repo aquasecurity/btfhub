@@ -152,12 +152,15 @@ for type in unsigned signed; do
 
                     rm -rf "./usr"
 
-                    pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
-                    # pahole "./${version}.btf" > "${version}.txt"
-                    tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+                    objdump -h -j .BTF "${version}.vmlinux" 2>&1 >/dev/null && info ".BTF section already exists in ${version}.vmlinux" || \
+                    {
+                        pahole --btf_encode_detached "${version}.btf" "${version}.vmlinux"
+                        # pahole "./${version}.btf" > "${version}.txt"
+                        tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+                        rm "${version}.btf"
+                    }
 
                     rm "${version}.ddeb"
-                    rm "${version}.btf"
                     # rm "${version}.txt"
                     rm "${version}.vmlinux"
 
