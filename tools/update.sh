@@ -794,7 +794,8 @@ for rhelver in rhel7 rhel8; do
 
     case "${rhelver}:${arch}" in
         "rhel7:x86_64")
-            releasevers=("7.6" "7.7" "7.8" "7.9")
+            # 7.7 is necessary for access to EUS repos
+            releasevers=("7.7")
         ;;
         "rhel7:arm64")
             releasevers=("7Server")
