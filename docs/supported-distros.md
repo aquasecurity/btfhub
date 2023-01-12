@@ -101,10 +101,15 @@ In the tables bellow you will find BPF, BTF and HUB columns:
 
 ### [Oracle Linux](https://en.wikipedia.org/wiki/Oracle_Linux#Software_updates_and_version_history)
 
-| Oracle | Release Date | RH Kernel   | UEK Kernel | BPF | BTF | HUB |
-|--------|--------------|-------------|------------|-----|-----|-----|
-| 7.8    | 2020-04-08   | 3.10.0-1127 | 4.14.35    |  Y  |  -  |  Y  |
-| 7.9    | 2020-10-07   | 3.10.0-1160 | 5.4.17     |  Y  |  -  |  Y  |
+| Oracle | Release Date | RH Kernel   | UEK Kernel          | BPF | BTF | HUB |
+|--------|--------------|-------------|---------------------|-----|-----|-----|
+| 7.8    | 2020-04-08   | 3.10.0-1127 | 4.14.35-1902.300.11 |  Y  |  -  |  Y  |
+| 7.9    | 2020-10-07   | 3.10.0-1160 | 5.4.17-2011.6.2     |  Y  |  -  |  Y  |
+| 8.2    | 2020-05-06   | 4.18.0-193  | 5.4.17-2011.1.2     |  Y  |  -  |  Y  |
+| 8.3    | 2020-11-13   | 4.18.0-240  | 5.4.17-2011.7.4     |  Y  |  -  |  Y  |
+| 8.4    | 2021-05-26   | 4.18.0-305  | 5.4.17-2102.201.3   |  Y  |  -  |  Y  |
+| ...    | ...          | ...         | ...                 |  Y  |  Y  |  -  |
+
 
 ### [Debian](https://en.wikipedia.org/wiki/Debian_version_history#Release_table)
 

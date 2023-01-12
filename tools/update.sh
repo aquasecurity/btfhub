@@ -9,7 +9,7 @@ echo "Updating BTF archives..."
 ## That's it: The tree should focus in arranging BTF data.
 ##
 
-## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye|ol7|rhel7|rhel8]
+## Syntax: $0 [bionic|focal|centos{7,8}|fedora{29,30,31,32}|amazon{1,2}|stretch|buster|bullseye|ol7|ol8|rhel7|rhel8]
 
 basedir=$(dirname "${0}")
 if [ "${basedir}" == "." ]; then
@@ -646,12 +646,12 @@ for arch in x86_64 arm64; do
 done # arch
 
 ###
-### 6. ORACLE LINUX (ol7)
+### 6. ORACLE LINUX (ol7, ol8)
 ###
 
 for arch in x86_64 arm64; do
 
-    for olver in ol7; do
+    for olver in ol7 ol8; do
 
         if [ "${1}" != "${olver}" ]; then
             continue
@@ -678,6 +678,10 @@ for arch in x86_64 arm64; do
             "ol7")
                 ver="7"
                 repository="https://oss.oracle.com/ol7/debuginfo/"
+            ;;
+            "ol8")
+                ver="8"
+                repository="https://oss.oracle.com/ol8/debuginfo/"
             ;;
         esac
 
@@ -745,14 +749,18 @@ for arch in x86_64 arm64; do
                 continue
             }
 
-            # generate BTF raw file from DWARF data
-            info "generating BTF file: ${version}.btf"
-            pahole --btf_encode_detached="${version}.btf" "${version}.vmlinux"
-            # pahole "${version}.btf" > "${version}.txt"
-            tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+            # check for existing BTF section
+            objdump -h -j .BTF "${version}.vmlinux" 2>&1 >/dev/null && info ".BTF section already exists in ${version}.vmlinux" || \
+            {
+                # generate BTF raw file from DWARF data
+                info "generating BTF file: ${version}.btf"
+                pahole --btf_encode_detached="${version}.btf" "${version}.vmlinux"
+                # pahole "${version}.btf" > "${version}.txt"
+                tar cvfJ "./${version}.btf.tar.xz" "${version}.btf"
+                rm "${version}.btf"
+            }
 
             rm "${version}.rpm"
-            rm "${version}.btf"
             # rm "${version}.txt"
             rm "${version}.vmlinux"
 
