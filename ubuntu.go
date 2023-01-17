@@ -54,7 +54,10 @@ func (d *ubuntuRepo) GetKernelPackages(ctx context.Context, dir string, release 
 		return fmt.Errorf("download base package list: %s", err)
 	}
 	if err := download(ctx, fmt.Sprintf("%s/dists/%s-updates/main/binary-%s/Packages", d.repo, release, altArch), rawPkgs); err != nil {
-		return fmt.Errorf("download updates package list: %s", err)
+		return fmt.Errorf("download updates main package list: %s", err)
+	}
+	if err := download(ctx, fmt.Sprintf("%s/dists/%s-updates/universe/binary-%s/Packages", d.repo, release, altArch), rawPkgs); err != nil {
+		return fmt.Errorf("download updates universe package list: %s", err)
 	}
 
 	pkgs, err := parseAPTPackages(rawPkgs, d.repo)
