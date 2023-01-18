@@ -64,7 +64,7 @@ func (d *debianRepo) GetKernelPackages(ctx context.Context, dir string, release 
 			return fmt.Errorf("repo url parse: %s", err)
 		}
 		repourl.Path = "/" + strings.Split(repourl.Path, "/")[1]
-		rpkgs, err := parseAPTPackages(rawPkgs, repourl.String())
+		rpkgs, err := parseAPTPackages(rawPkgs, repourl.String(), release)
 		if err != nil {
 			return fmt.Errorf("parsing package list: %s", err)
 		}

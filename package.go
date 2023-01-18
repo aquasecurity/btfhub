@@ -1,6 +1,10 @@
 package main
 
-import "context"
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+)
 
 type Package interface {
 	String() string
@@ -8,6 +12,16 @@ type Package interface {
 	Version() kernelVersion
 	Download(ctx context.Context, dir string) (string, error)
 	ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error
+}
+
+func packageBTFExists(p Package, dir string) bool {
+	fp := filepath.Join(dir, fmt.Sprintf("%s.btf.tar.xz", p.Filename()))
+	return exists(fp)
+}
+
+func packageFailed(p Package, dir string) bool {
+	fp := filepath.Join(dir, fmt.Sprintf("%s.failed", p.Filename()))
+	return exists(fp)
 }
 
 type ByVersion []Package

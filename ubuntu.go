@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -20,23 +22,22 @@ import (
 )
 
 type ubuntuRepo struct {
-	repo           string
-	kernelVersions map[string][]string
-	kernelTypes    map[string]string
-	archs          map[string]string
+	repo        map[string]string // arch to url
+	debugRepo   string
+	kernelTypes map[string]string
+	archs       map[string]string
 }
 
 func newUbuntuRepo() Repository {
 	return &ubuntuRepo{
-		repo: "http://ddebs.ubuntu.com",
-		kernelVersions: map[string][]string{
-			"xenial": {"4.4.0", "4.15.0"},
-			"bionic": {"4.15.0", "4.18.0", "5.4.0"},
-			"focal":  {"5.4.0", "5.8.0", "5.11.0"},
+		repo: map[string]string{
+			"amd64": "http://us-east-1.ec2.archive.ubuntu.com/ubuntu",
+			"arm64": "http://ports.ubuntu.com",
 		},
+		debugRepo: "http://ddebs.ubuntu.com",
 		kernelTypes: map[string]string{
-			"signed":   "linux-image-%s-.*-(generic|azure|gke|gcp|aws)-dbgsym",
-			"unsigned": "linux-image-unsigned-%s-.*-(generic|azure|gke|gcp|aws)-dbgsym",
+			"signed":   "linux-image-[0-9.]+-.*-(generic|azure|gke|gkeop|gcp|aws)",
+			"unsigned": "linux-image-unsigned-[0-9.]+-.*-(generic|azure|gke|gkeop|gcp|aws)",
 		},
 		archs: map[string]string{
 			"x86_64": "amd64",
@@ -45,52 +46,122 @@ func newUbuntuRepo() Repository {
 	}
 }
 
+func indexPackages(pkgs []*ubuntuPackage) map[string]*ubuntuPackage {
+	mp := make(map[string]*ubuntuPackage, len(pkgs))
+	for _, p := range pkgs {
+		mp[p.Filename()] = p
+	}
+	return mp
+}
+
+func getPackageList(ctx context.Context, repo string, release string, arch string) (*bytes.Buffer, error) {
+	rawPkgs := &bytes.Buffer{}
+	if err := download(ctx, fmt.Sprintf("%s/dists/%s/main/binary-%s/Packages.xz", repo, release, arch), rawPkgs); err != nil {
+		return nil, fmt.Errorf("download base package list: %s", err)
+	}
+	if err := download(ctx, fmt.Sprintf("%s/dists/%s-updates/main/binary-%s/Packages.xz", repo, release, arch), rawPkgs); err != nil {
+		return nil, fmt.Errorf("download updates main package list: %s", err)
+	}
+	if err := download(ctx, fmt.Sprintf("%s/dists/%s-updates/universe/binary-%s/Packages.xz", repo, release, arch), rawPkgs); err != nil {
+		return nil, fmt.Errorf("download updates universe package list: %s", err)
+	}
+	return rawPkgs, nil
+}
+
 func (d *ubuntuRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- Job) error {
-	ktypes := []string{"signed", "unsigned"}
 	altArch := d.archs[arch]
 
-	rawPkgs := &bytes.Buffer{}
-	if err := download(ctx, fmt.Sprintf("%s/dists/%s/main/binary-%s/Packages", d.repo, release, altArch), rawPkgs); err != nil {
-		return fmt.Errorf("download base package list: %s", err)
-	}
-	if err := download(ctx, fmt.Sprintf("%s/dists/%s-updates/main/binary-%s/Packages", d.repo, release, altArch), rawPkgs); err != nil {
-		return fmt.Errorf("download updates main package list: %s", err)
-	}
-	if err := download(ctx, fmt.Sprintf("%s/dists/%s-updates/universe/binary-%s/Packages", d.repo, release, altArch), rawPkgs); err != nil {
-		return fmt.Errorf("download updates universe package list: %s", err)
-	}
-
-	pkgs, err := parseAPTPackages(rawPkgs, d.repo)
+	// get main apt kernel list
+	rawPkgs, err := getPackageList(ctx, d.repo[altArch], release, altArch)
 	if err != nil {
-		return fmt.Errorf("parsing package list: %s", err)
+		return fmt.Errorf("main: %s", err)
 	}
-	log.Printf("DEBUG: %d packages\n", len(pkgs))
+	pkgs, err := parseAPTPackages(rawPkgs, d.repo[altArch], release)
+	if err != nil {
+		return fmt.Errorf("parsing main package list: %s", err)
+	}
 
-	pkgsByKernelType := make(map[string][]Package)
-	for _, uv := range d.kernelVersions[release] {
-		for _, kt := range ktypes {
-			re := regexp.MustCompile(fmt.Sprintf(d.kernelTypes[kt], uv))
-			for _, p := range pkgs {
-				match := re.FindStringSubmatch(p.name)
-				if match == nil {
-					continue
-				}
+	var filteredPkgs []*ubuntuPackage
+	for _, restr := range d.kernelTypes {
+		re := regexp.MustCompile(fmt.Sprintf("%s$", restr))
+		for _, p := range pkgs {
+			match := re.FindStringSubmatch(p.name)
+			if match == nil {
+				continue
+			}
+			if packageBTFExists(p, dir) || packageFailed(p, dir) {
+				continue
+			}
+			p.flavor = match[1]
+			filteredPkgs = append(filteredPkgs, p)
+		}
+	}
 
-				kernelType := match[1]
-				ks, ok := pkgsByKernelType[kernelType]
-				if !ok {
-					ks = make([]Package, 0, 1)
-				}
-				ks = append(ks, p)
-				pkgsByKernelType[kernelType] = ks
+	// get ddebs package list
+	dbgRawPkgs, err := getPackageList(ctx, d.debugRepo, release, altArch)
+	if err != nil {
+		return fmt.Errorf("ddebs: %s", err)
+	}
+	dbgPkgs, err := parseAPTPackages(dbgRawPkgs, d.debugRepo, release)
+	if err != nil {
+		return fmt.Errorf("parsing debug package list: %s", err)
+	}
+	dbgPkgMap := make(map[string]*ubuntuPackage)
+	for _, restr := range d.kernelTypes {
+		re := regexp.MustCompile(fmt.Sprintf("%s-dbgsym", restr))
+		for _, p := range dbgPkgs {
+			match := re.FindStringSubmatch(p.name)
+			if match == nil {
+				continue
+			}
+			if p.size < 10_000_000 {
+				continue
+			}
+			if packageBTFExists(p, dir) || packageFailed(p, dir) {
+				continue
+			}
+			p.flavor = match[1]
+			if dp, ok := dbgPkgMap[p.Filename()]; !ok {
+				dbgPkgMap[p.Filename()] = p
+			} else {
+				log.Printf("DEBUG: duplicate %s filename from %s (other %s)", p.Filename(), p, dp)
 			}
 		}
 	}
 
-	log.Printf("DEBUG: %d flavors\n", len(pkgsByKernelType))
+	// add pseudo-packages for missing entries to try pull-lp-ddebs
+	for _, p := range filteredPkgs {
+		_, ok := dbgPkgMap[p.Filename()]
+		if !ok {
+			log.Printf("DEBUG: adding launchpad package for %s\n", p.name)
+			dbgPkgMap[p.Filename()] = &ubuntuPackage{
+				// always use unsigned, because signed never has the actual kernel
+				name:         fmt.Sprintf("linux-image-unsigned-%s-dbgsym", p.Filename()),
+				architecture: p.architecture,
+				version:      p.version,
+				filename:     p.filename,
+				size:         math.MaxUint64,
+				flavor:       p.flavor,
+				url:          "pull-lp-ddebs",
+			}
+		}
+	}
+
+	log.Printf("DEBUG: %d %s packages\n", len(dbgPkgMap), arch)
+	pkgsByKernelType := make(map[string][]Package)
+	for _, p := range dbgPkgMap {
+		ks, ok := pkgsByKernelType[p.flavor]
+		if !ok {
+			ks = make([]Package, 0, 1)
+		}
+		ks = append(ks, p)
+		pkgsByKernelType[p.flavor] = ks
+	}
+
+	log.Printf("DEBUG: %d %s flavors\n", len(pkgsByKernelType), arch)
 	for kt, ks := range pkgsByKernelType {
 		sort.Sort(ByVersion(ks))
-		log.Printf("DEBUG: %s flavor %d kernels\n", kt, len(ks))
+		log.Printf("DEBUG: %s %s flavor %d kernels\n", arch, kt, len(ks))
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -126,9 +197,9 @@ func (d *ubuntuRepo) processPackages(ctx context.Context, dir string, pkgs []Pac
 	return nil
 }
 
-func parseAPTPackages(r io.Reader, baseurl string) ([]*ubuntuPackage, error) {
+func parseAPTPackages(r io.Reader, baseurl string, release string) ([]*ubuntuPackage, error) {
 	var pkgs []*ubuntuPackage
-	p := &ubuntuPackage{}
+	p := &ubuntuPackage{release: release}
 	bio := bufio.NewScanner(r)
 	bio.Buffer(make([]byte, 4096), 128*1024)
 	for bio.Scan() {
@@ -138,7 +209,7 @@ func parseAPTPackages(r io.Reader, baseurl string) ([]*ubuntuPackage, error) {
 			if strings.HasPrefix(p.name, "linux-image-") && p.isValid() {
 				pkgs = append(pkgs, p)
 			}
-			p = &ubuntuPackage{}
+			p = &ubuntuPackage{release: release}
 			continue
 		}
 		if line[0] == ' ' {
@@ -187,10 +258,12 @@ type ubuntuPackage struct {
 	filename     string
 	url          string
 	size         uint64
+	release      string
+	flavor       string
 }
 
 func (pkg *ubuntuPackage) isValid() bool {
-	return pkg.name != "" && pkg.url != "" && pkg.filename != "" && pkg.version.String() != "" && pkg.size > 10_000_000
+	return pkg.name != "" && pkg.url != "" && pkg.filename != "" && pkg.version.String() != ""
 }
 
 func (pkg *ubuntuPackage) Filename() string {
@@ -212,7 +285,14 @@ func (pkg *ubuntuPackage) Download(ctx context.Context, dir string) (string, err
 		return ddebpath, nil
 	}
 
-	// TODO check for existing ddeb file and check checksum, skip if valid
+	if pkg.url == "pull-lp-ddebs" {
+		if err := pkg.pullLaunchpadDdeb(ctx, dir, ddebpath); err != nil {
+			os.Remove(ddebpath)
+			return "", fmt.Errorf("downloading ddeb package: %s", err)
+		}
+		return ddebpath, nil
+	}
+
 	if err := downloadFile(ctx, pkg.url, ddebpath); err != nil {
 		os.Remove(ddebpath)
 		return "", fmt.Errorf("downloading ddeb package: %s", err)
@@ -259,4 +339,38 @@ func (pkg *ubuntuPackage) ExtractKernel(ctx context.Context, pkgpath string, vml
 		}
 	}
 	return fmt.Errorf("%s file not found in ddeb", debpath)
+}
+
+func (pkg *ubuntuPackage) pullLaunchpadDdeb(ctx context.Context, dir string, dest string) error {
+	fmt.Printf("Downloading %s from launchpad\n", pkg.name)
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd := exec.CommandContext(ctx, "pull-lp-ddebs", "--arch", pkg.architecture, pkg.name, pkg.release)
+	cmd.Dir = dir
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pull-lp-ddebs: %s\n%s\n%s", err, stdout.String(), stderr.String())
+	}
+
+	scan := bufio.NewScanner(stdout)
+	for scan.Scan() {
+		line := scan.Text()
+		if strings.HasPrefix(line, "Downloading ") {
+			fields := strings.Fields(line)
+			debpath := filepath.Join(dir, fields[1])
+			if err := os.Rename(debpath, dest); err != nil {
+				return fmt.Errorf("rename %s to %s: %s", debpath, dest, err)
+			}
+			return nil
+		}
+	}
+	if scan.Err() != nil {
+		return scan.Err()
+	}
+	errline := stderr.String()
+	if len(errline) > 0 {
+		return fmt.Errorf(strings.TrimSpace(errline))
+	}
+	return fmt.Errorf("download path not found in pull-lp-ddebs output")
 }

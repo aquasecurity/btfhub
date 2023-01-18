@@ -21,9 +21,10 @@ func StartWorker(ctx context.Context, jobchan <-chan Job) error {
 			}
 			err := job.Do(ctx)
 			if err != nil {
-				log.Printf("ERROR: %s", err)
 				if ch := job.Reply(); ch != nil {
 					ch <- err
+				} else {
+					log.Printf("ERROR: %s", err)
 				}
 			}
 		}

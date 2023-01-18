@@ -35,7 +35,7 @@ func download(ctx context.Context, url string, w io.Writer) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("returned status code: %d", resp.StatusCode)
+		return fmt.Errorf("%s returned status code: %d", url, resp.StatusCode)
 	}
 	counter := &progressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
 	brdr := io.TeeReader(resp.Body, counter)
