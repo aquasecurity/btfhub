@@ -11,9 +11,10 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/repo"
-	"golang.org/x/sync/errgroup"
 )
 
 var distroReleases = map[string][]string{
@@ -24,6 +25,7 @@ var distroReleases = map[string][]string{
 	"ol":     {"7", "8"},
 	"rhel":   {"7", "8"},
 	"amzn":   {"1", "2"},
+	"sles":   {"12.3", "12.5", "15.1", "15.2", "15.3", "15.4"},
 }
 
 type repoFunc func() repo.Repository
@@ -36,6 +38,7 @@ var repoCreators = map[string]repoFunc{
 	"ol":     repo.NewOracleRepo,
 	"rhel":   repo.NewRHELRepo,
 	"amzn":   repo.NewAmazonRepo,
+	"sles":   repo.NewSUSERepo,
 }
 
 var distro, release, arch string
@@ -43,8 +46,8 @@ var numWorkers int
 var force bool
 
 func init() {
-	flag.StringVar(&distro, "distro", "", "distribution to update (ubuntu,debian,centos,fedora,ol,rhel,amazon)")
-	flag.StringVar(&distro, "d", "", "distribution to update (ubuntu,debian,centos,fedora,ol,rhel,amazon)")
+	flag.StringVar(&distro, "distro", "", "distribution to update (ubuntu,debian,centos,fedora,ol,rhel,amazon,sles)")
+	flag.StringVar(&distro, "d", "", "distribution to update (ubuntu,debian,centos,fedora,ol,rhel,amazon,sles)")
 	flag.StringVar(&release, "release", "", "distribution release to update, requires specifying distribution")
 	flag.StringVar(&release, "r", "", "distribution release to update, requires specifying distribution")
 	flag.StringVar(&arch, "arch", "", "architecture to update (x86_64,arm64)")

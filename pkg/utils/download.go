@@ -47,6 +47,7 @@ func Download(ctx context.Context, url string, dest io.Writer) error {
 	// Create a progress counter reader
 
 	counter := &ProgressCounter{
+		Ctx:  ctx,
 		Op:   "Download",                 // operation
 		Name: resp.Request.URL.String(),  // file name
 		Size: uint64(resp.ContentLength), // file length
@@ -78,11 +79,13 @@ func Download(ctx context.Context, url string, dest io.Writer) error {
 }
 
 // GetLinks returns a list of links from a given URL
-func GetLinks(repoURL string) ([]string, error) {
-
+func GetLinks(ctx context.Context, repoURL string) ([]string, error) {
 	// Read the repo URL
-
-	resp, err := http.Get(repoURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, repoURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %s", err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get links from %s: %s", repoURL, err)
 	}
@@ -99,6 +102,7 @@ func GetLinks(repoURL string) ([]string, error) {
 	// Create a progress counter reader
 
 	counter := &ProgressCounter{
+		Ctx:  ctx,
 		Op:   "Download",
 		Name: resp.Request.URL.String(),
 		Size: uint64(resp.ContentLength),
