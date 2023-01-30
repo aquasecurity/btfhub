@@ -51,7 +51,7 @@ func (d *CentosRepo) GetKernelPackages(
 
 	repoURL := fmt.Sprintf(d.repos[release], altArch)
 
-	links, err := utils.GetLinks(repoURL)
+	links, err := utils.GetLinks(ctx, repoURL)
 	if err != nil {
 		return fmt.Errorf("ERROR: list packages: %s", err)
 	}

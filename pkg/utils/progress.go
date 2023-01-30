@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 )
 
 type ProgressCounter struct {
+	Ctx  context.Context
 	Op   string
 	Size uint64
 	Name string
@@ -20,6 +22,10 @@ type ProgressCounter struct {
 // Write implements the io.Writer interface and is used to count the number of
 // bytes written to the underlying writer.
 func (wc *ProgressCounter) Write(p []byte) (int, error) {
+	if wc.Ctx != nil && wc.Ctx.Err() != nil {
+		return 0, wc.Ctx.Err()
+	}
+
 	n := len(p)
 	wc.written += uint64(n)
 

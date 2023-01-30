@@ -90,7 +90,7 @@ func (d *FedoraRepo) GetKernelPackages(
 	// Pick all the links from multiple repositories
 
 	for _, repo := range repos {
-		rlinks, err := utils.GetLinks(repo)
+		rlinks, err := utils.GetLinks(ctx, repo)
 		if err != nil {
 			log.Printf("ERROR: list packages: %s\n", err)
 			continue

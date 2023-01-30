@@ -12,9 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"pault.ag/go/debian/deb"
+
 	"github.com/aquasecurity/btfhub/pkg/kernel"
 	"github.com/aquasecurity/btfhub/pkg/utils"
-	"pault.ag/go/debian/deb"
 )
 
 // UbuntuPackage represents a package in Ubuntu
@@ -116,6 +117,7 @@ func (pkg *UbuntuPackage) ExtractKernel(ctx context.Context, pkgPath string, vml
 				return fmt.Errorf("create vmlinux file: %s", err)
 			}
 			counter := &utils.ProgressCounter{
+				Ctx:  ctx,
 				Op:   "Extract",
 				Name: hdr.Name,
 				Size: uint64(hdr.Size),

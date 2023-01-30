@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"compress/bzip2"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -44,10 +45,12 @@ func ExtractVmlinuxFromRPM(ctx context.Context, rpmPath string, vmlinuxPath stri
 	case "gzip":
 		grdr, err := gzip.NewReader(file)
 		if err != nil {
-			return fmt.Errorf("xz reader: %s", err)
+			return fmt.Errorf("gzip reader: %s", err)
 		}
 		defer grdr.Close()
 		crdr = grdr
+	case "bzip2":
+		crdr = bzip2.NewReader(file)
 	default:
 		return fmt.Errorf("unsupported compression: %s", rpmPkg.PayloadCompression())
 	}
@@ -86,6 +89,7 @@ func ExtractVmlinuxFromRPM(ctx context.Context, rpmPath string, vmlinuxPath stri
 			}
 
 			counter := &ProgressCounter{
+				Ctx:  ctx,
 				Op:   "Extract",
 				Name: cpioHeader.Name,
 				Size: uint64(cpioHeader.Size),
