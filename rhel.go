@@ -38,7 +38,8 @@ func newRHELRepo() Repository {
 }
 
 func (d *rhelRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- Job) error {
-	rver := d.releaseVersions[release+":"+arch]
+	altArch := d.archs[arch]
+	rver := d.releaseVersions[release+":"+altArch]
 	if err := runCmd(ctx, "", "sudo", "subscription-manager", "release", fmt.Sprintf("--set=%s", rver)); err != nil {
 		return err
 	}
