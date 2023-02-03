@@ -30,7 +30,7 @@ func newRHELRepo() Repository {
 			"arm64":  "aarch64",
 		},
 		releaseVersions: map[string]string{
-			"7:x86_64":  "7.7",
+			"7:x86_64":  "7.9",
 			"7:aarch64": "7Server",
 			"8:x86_64":  "8.1",
 			"8:aarch64": "8.1",
