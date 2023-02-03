@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
 
 type rhelRepo struct {
@@ -69,7 +71,7 @@ func (d *rhelRepo) GetKernelPackages(ctx context.Context, dir string, release st
 }
 
 func parseYumPackages(rdr io.Reader, minVersion kernelVersion) ([]Package, error) {
-	var pkgs []Package
+	pkgs := map[string]Package{}
 	bio := bufio.NewScanner(rdr)
 	for bio.Scan() {
 		line := bio.Text()
@@ -98,12 +100,14 @@ func parseYumPackages(rdr io.Reader, minVersion kernelVersion) ([]Package, error
 		if !minVersion.IsZero() && p.Version().Less(minVersion) {
 			continue
 		}
-		pkgs = append(pkgs, p)
+		if _, ok := pkgs[p.name]; !ok {
+			pkgs[p.name] = p
+		}
 	}
 	if err := bio.Err(); err != nil {
 		return nil, err
 	}
-	return pkgs, nil
+	return maps.Values(pkgs), nil
 }
 
 func yumSearch(ctx context.Context, pkg string) (*bytes.Buffer, error) {
