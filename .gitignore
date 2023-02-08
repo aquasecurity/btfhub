@@ -1,6 +1,3 @@
-.idea*
-btfhub-archive-repo
-archive
-test/test_helper
-btfhub
-archive
+./btfhub
+./archive/*
+./custom-archive/*
