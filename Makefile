@@ -118,7 +118,7 @@ SRC_DIRS = ./cmd/
 SRC = $(shell find $(SRC_DIRS) -type f -name '*.go' ! -name '*_test.go')
 
 .PHONY: btfhub
-btfhub: $(PROGRAM)
+btfhub:
 
 $(PROGRAM): \
 	$(SRC) \
