@@ -1,27 +1,30 @@
-package main
+package pkg
 
 import (
 	"context"
 	"fmt"
 	"path/filepath"
+
+	"github.com/aquasecurity/btfhub/pkg/kernel"
+	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
 type Package interface {
 	String() string
 	Filename() string
-	Version() kernelVersion
+	Version() kernel.KernelVersion
 	Download(ctx context.Context, dir string) (string, error)
 	ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error
 }
 
-func packageBTFExists(p Package, dir string) bool {
+func PackageBTFExists(p Package, dir string) bool {
 	fp := filepath.Join(dir, fmt.Sprintf("%s.btf.tar.xz", p.Filename()))
-	return exists(fp)
+	return utils.Exists(fp)
 }
 
-func packageFailed(p Package, dir string) bool {
+func PackageFailed(p Package, dir string) bool {
 	fp := filepath.Join(dir, fmt.Sprintf("%s.failed", p.Filename()))
-	return exists(fp)
+	return utils.Exists(fp)
 }
 
 type ByVersion []Package

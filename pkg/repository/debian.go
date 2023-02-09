@@ -1,4 +1,4 @@
-package main
+package repo
 
 import (
 	"bytes"
@@ -10,9 +10,13 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/aquasecurity/btfhub/pkg/job"
+	pkg "github.com/aquasecurity/btfhub/pkg/package"
+	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
-type debianRepo struct {
+type DebianRepo struct {
 	archs          map[string]string
 	repos          map[string][]string
 	releaseNumbers map[string]string
@@ -30,8 +34,8 @@ var newRepos = []string{
 	"http://security.debian.org/debian-security/dists/%s-security/main/binary-%s/Packages.xz",
 }
 
-func newDebianRepo() Repository {
-	return &debianRepo{
+func NewDebianRepo() Repository {
+	return &DebianRepo{
 		archs: map[string]string{
 			"x86_64": "amd64",
 			"arm64":  "arm64",
@@ -49,14 +53,14 @@ func newDebianRepo() Repository {
 	}
 }
 
-func (d *debianRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- Job) error {
+func (d *DebianRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
 	altArch := d.archs[arch]
 
-	var pkgs []Package
+	var pkgs []pkg.Package
 	for _, r := range d.repos[release] {
 		rawPkgs := &bytes.Buffer{}
 		repo := fmt.Sprintf(r, release, altArch)
-		if err := download(ctx, repo, rawPkgs); err != nil {
+		if err := utils.Download(ctx, repo, rawPkgs); err != nil {
 			return fmt.Errorf("download package list %s: %s", repo, err)
 		}
 		repourl, err := url.Parse(repo)
@@ -64,14 +68,14 @@ func (d *debianRepo) GetKernelPackages(ctx context.Context, dir string, release 
 			return fmt.Errorf("repo url parse: %s", err)
 		}
 		repourl.Path = "/" + strings.Split(repourl.Path, "/")[1]
-		rpkgs, err := parseAPTPackages(rawPkgs, repourl.String(), release)
+		rpkgs, err := pkg.ParseAPTPackages(rawPkgs, repourl.String(), release)
 		if err != nil {
 			return fmt.Errorf("parsing package list: %s", err)
 		}
 
 		re := regexp.MustCompile("linux-image-[0-9]+\\.[0-9]+\\.[0-9].*-dbg")
 		for _, r := range rpkgs {
-			match := re.FindStringSubmatch(r.name)
+			match := re.FindStringSubmatch(r.Name)
 			if match == nil {
 				continue
 			}
@@ -79,11 +83,11 @@ func (d *debianRepo) GetKernelPackages(ctx context.Context, dir string, release 
 		}
 	}
 
-	sort.Sort(ByVersion(pkgs))
+	sort.Sort(pkg.ByVersion(pkgs))
 	for _, pkg := range pkgs {
 		err := processPackage(ctx, pkg, dir, jobchan)
 		if err != nil {
-			if errors.Is(err, ErrHasBTF) {
+			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil
 			}
