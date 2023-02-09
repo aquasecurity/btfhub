@@ -29,6 +29,7 @@ CMD_GREP ?= grep
 CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
 CMD_RSYNC ?= rsync
+CMD_CLANG ?= clang
 
 .check_%:
 #
@@ -104,7 +105,7 @@ PROGRAM ?= btfhub
 #
 
 STATIC ?= 0
-GO_TAGS_EBPF = none
+GO_TAGS_EBPF =
 
 ifeq ($(STATIC), 1)
     GO_TAGS := $(GO_TAGS),netgo
@@ -130,6 +131,24 @@ $(PROGRAM): \
 			" \
 		-v -o $@ \
 		./cmd/btfhub/
+
+#
+# btfhub tests
+#
+
+.PHONY: test-unit
+test-unit: \
+	$(SRC) \
+	| .check_$(CMD_GO) \
+	.checkver_$(CMD_GO)
+#
+	$(GO_ENV) \
+	$(CMD_GO) test \
+		-short \
+		-race \
+		-v \
+		./cmd/... \
+		./pkg/...
 
 #
 # repository
