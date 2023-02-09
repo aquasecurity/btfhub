@@ -28,6 +28,7 @@ CMD_GO ?= go
 CMD_GREP ?= grep
 CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
+CMD_RSYNC ?= rsync
 
 .check_%:
 #
@@ -117,12 +118,10 @@ GO_ENV += GOARCH=$(GO_ARCH)
 SRC_DIRS = ./cmd/
 SRC = $(shell find $(SRC_DIRS) -type f -name '*.go' ! -name '*_test.go')
 
-.PHONY: btfhub
-btfhub:
-
 $(PROGRAM): \
 	$(SRC) \
-	| .checkver_$(CMD_GO)
+	| .check_$(CMD_GO) \
+	.checkver_$(CMD_GO)
 #
 	$(GO_ENV) $(CMD_GO) build \
 		-tags $(GO_TAGS_EBPF) \
@@ -131,6 +130,53 @@ $(PROGRAM): \
 			" \
 		-v -o $@ \
 		./cmd/btfhub/
+
+#
+# repository
+#
+
+BTFHUB_ARCHIVE_DIR ?= ../btfhub-archive
+LOCAL_ARCHIVE_DIR ?= ./archive
+
+.PHONY: bring
+bring: \
+	| .check_$(CMD_RSYNC)
+#
+	@echo ""
+	@if [ ! -d $(BTFHUB_ARCHIVE_DIR) ]; then
+		echo "ERROR: make sure to have the btfhub-archive repository at $(BTFHUB_ARCHIVE_DIR)"
+		echo ""
+		exit 1
+	fi
+	echo -n "WARNING: this will delete all the files in $(LOCAL_ARCHIVE_DIR), press enter to continue"
+	echo -n " ... "
+	read nop
+	echo ""
+	$(CMD_RSYNC) -av --delete --exclude=.git $(BTFHUB_ARCHIVE_DIR)/ $(LOCAL_ARCHIVE_DIR)/
+	echo ""
+
+.PHONY: take
+take: \
+	| .check_$(CMD_RSYNC)
+#
+	@echo ""
+	if [ ! -d $(BTFHUB_ARCHIVE_DIR) ]; then
+		echo "ERROR: make sure to have the btfhub-archive repository at $(BTFHUB_ARCHIVE_DIR)"
+		echo ""
+		exit 1
+	fi
+	echo -n "WARNING: this will take files from $(LOCAL_ARCHIVE_DIR) into $(BTFHUB_ARCHIVE_DIR), press enter to continue"
+	echo -n " ... "
+	echo ""
+	read nop
+	$(CMD_RSYNC) -av --exclude=.git $(BTFHUB_ARCHIVE_DIR)/ $(LOCAL_ARCHIVE_DIR)/
+	echo ""
+	echo "INFO: now goto $(BTFHUB_ARCHIVE_DIR) and commit the changes"
+	echo ""
+
+#
+# clean
+#
 
 .PHONY: clean
 clean:
