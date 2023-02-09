@@ -1,14 +1,9 @@
-package main
+package job
 
 import (
 	"context"
 	"log"
 )
-
-type Job interface {
-	Do(context.Context) error
-	Reply() chan<- interface{}
-}
 
 func StartWorker(ctx context.Context, jobchan <-chan Job) error {
 	for {

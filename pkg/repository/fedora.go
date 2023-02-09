@@ -1,21 +1,24 @@
-package main
+package repo
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/aquasecurity/btfhub/pkg/job"
+	"github.com/aquasecurity/btfhub/pkg/kernel"
+	pkg "github.com/aquasecurity/btfhub/pkg/package"
+	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
-type fedoraRepo struct {
+type FedoraRepo struct {
 	archs      map[string]string
 	repos      map[string][]string
-	minVersion kernelVersion
+	minVersion kernel.KernelVersion
 }
 
 var centosArchives = []string{
@@ -26,8 +29,8 @@ var centosDownload = []string{
 	"https://dl.fedoraproject.org/pub/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
 }
 
-func newFedoraRepo() Repository {
-	return &fedoraRepo{
+func NewFedoraRepo() Repository {
+	return &FedoraRepo{
 		archs: map[string]string{
 			"x86_64": "x86_64",
 			"arm64":  "aarch64",
@@ -45,11 +48,11 @@ func newFedoraRepo() Repository {
 			//"33": centosArchives,
 			//"34": centosDownload,
 		},
-		minVersion: newKernelVersion("3.10.0-957"),
+		minVersion: kernel.NewKernelVersion("3.10.0-957"),
 	}
 }
 
-func (d *fedoraRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- Job) error {
+func (d *FedoraRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
 	altArch := d.archs[arch]
 	var repos []string
 	for _, r := range d.repos[release] {
@@ -58,7 +61,7 @@ func (d *fedoraRepo) GetKernelPackages(ctx context.Context, dir string, release 
 
 	var links []string
 	for _, repo := range repos {
-		rlinks, err := getLinks(repo)
+		rlinks, err := utils.GetLinks(repo)
 		if err != nil {
 			//return fmt.Errorf("list packages: %s", err)
 			log.Printf("ERROR: list packages: %s\n", err)
@@ -67,18 +70,18 @@ func (d *fedoraRepo) GetKernelPackages(ctx context.Context, dir string, release 
 		links = append(links, rlinks...)
 	}
 
-	var pkgs []Package
+	var pkgs []pkg.Package
 	kre := regexp.MustCompile(fmt.Sprintf(`kernel-debuginfo-([0-9].*\.%s)\.rpm`, altArch))
 	for _, l := range links {
 		match := kre.FindStringSubmatch(l)
 		if match != nil {
 			name := strings.TrimSuffix(match[0], ".rpm")
-			p := &fedoraPackage{
-				name:         name,
-				filename:     match[1],
-				architecture: altArch,
-				url:          l,
-				version:      newKernelVersion(match[1]),
+			p := &pkg.FedoraPackage{
+				Name:          name,
+				NameOfFile:    match[1],
+				Architecture:  altArch,
+				URL:           l,
+				KernelVersion: kernel.NewKernelVersion(match[1]),
 			}
 			if p.Version().Less(d.minVersion) {
 				continue
@@ -87,12 +90,12 @@ func (d *fedoraRepo) GetKernelPackages(ctx context.Context, dir string, release 
 		}
 	}
 
-	sort.Sort(ByVersion(pkgs))
+	sort.Sort(pkg.ByVersion(pkgs))
 
 	for _, pkg := range pkgs {
 		err := processPackage(ctx, pkg, dir, jobchan)
 		if err != nil {
-			if errors.Is(err, ErrHasBTF) {
+			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil
 			}
@@ -100,42 +103,4 @@ func (d *fedoraRepo) GetKernelPackages(ctx context.Context, dir string, release 
 		}
 	}
 	return nil
-}
-
-type fedoraPackage struct {
-	name         string
-	architecture string
-	version      kernelVersion
-	filename     string
-	url          string
-}
-
-func (pkg *fedoraPackage) Filename() string {
-	return pkg.filename
-}
-
-func (pkg *fedoraPackage) Version() kernelVersion {
-	return pkg.version
-}
-
-func (pkg *fedoraPackage) String() string {
-	return pkg.name
-}
-
-func (pkg *fedoraPackage) Download(ctx context.Context, dir string) (string, error) {
-	localFile := fmt.Sprintf("%s.rpm", pkg.filename)
-	rpmpath := filepath.Join(dir, localFile)
-	if exists(rpmpath) {
-		return rpmpath, nil
-	}
-
-	if err := downloadFile(ctx, pkg.url, rpmpath); err != nil {
-		os.Remove(rpmpath)
-		return "", fmt.Errorf("downloading rpm package: %s", err)
-	}
-	return rpmpath, nil
-}
-
-func (pkg *fedoraPackage) ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error {
-	return extractVmlinuxFromRPM(ctx, pkgpath, vmlinuxPath)
 }

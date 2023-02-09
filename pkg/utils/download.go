@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"bufio"
@@ -14,17 +14,17 @@ import (
 	fastxz "github.com/therootcompany/xz"
 )
 
-func downloadFile(ctx context.Context, url string, file string) error {
+func DownloadFile(ctx context.Context, url string, file string) error {
 	f, err := os.Create(file)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	return download(ctx, url, f)
+	return Download(ctx, url, f)
 }
 
-func download(ctx context.Context, url string, w io.Writer) error {
+func Download(ctx context.Context, url string, w io.Writer) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -37,7 +37,7 @@ func download(ctx context.Context, url string, w io.Writer) error {
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("%s returned status code: %d", url, resp.StatusCode)
 	}
-	counter := &progressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
+	counter := &ProgressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
 	brdr := io.TeeReader(resp.Body, counter)
 
 	var rdr io.Reader
@@ -60,7 +60,7 @@ func download(ctx context.Context, url string, w io.Writer) error {
 	return err
 }
 
-func getLinks(repourl string) ([]string, error) {
+func GetLinks(repourl string) ([]string, error) {
 	resp, err := http.Get(repourl)
 	if err != nil {
 		return nil, fmt.Errorf("get links from %s: %s", repourl, err)
@@ -72,7 +72,7 @@ func getLinks(repourl string) ([]string, error) {
 
 	var links []string
 	re := regexp.MustCompile(`href="([^"]+)"`)
-	counter := &progressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
+	counter := &ProgressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
 	scan := bufio.NewScanner(io.TeeReader(resp.Body, counter))
 	for scan.Scan() {
 		matches := re.FindAllStringSubmatch(string(scan.Bytes()), -1)

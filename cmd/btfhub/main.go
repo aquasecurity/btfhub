@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/aquasecurity/btfhub/pkg/job"
+	repo "github.com/aquasecurity/btfhub/pkg/repository"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -24,16 +26,16 @@ var distroReleases = map[string][]string{
 	"amzn":   {"1", "2"},
 }
 
-type repoFunc func() Repository
+type repoFunc func() repo.Repository
 
 var repoCreators = map[string]repoFunc{
-	"ubuntu": newUbuntuRepo,
-	"debian": newDebianRepo,
-	"fedora": newFedoraRepo,
-	"centos": newCentOSRepo,
-	"ol":     newOracleRepo,
-	"rhel":   newRHELRepo,
-	"amzn":   newAmazonRepo,
+	"ubuntu": repo.NewUbuntuRepo,
+	"debian": repo.NewDebianRepo,
+	"fedora": repo.NewFedoraRepo,
+	"centos": repo.NewCentOSRepo,
+	"ol":     repo.NewOracleRepo,
+	"rhel":   repo.NewRHELRepo,
+	"amzn":   repo.NewAmazonRepo,
 }
 
 var distro, release, arch string
@@ -98,7 +100,7 @@ func run(ctx context.Context) error {
 		archs = []string{arch}
 	}
 
-	jobchan := make(chan Job)
+	jobchan := make(chan job.Job)
 	consume, cctx := errgroup.WithContext(ctx)
 	if numWorkers == 0 {
 		numWorkers = runtime.NumCPU() - 1
@@ -106,7 +108,7 @@ func run(ctx context.Context) error {
 	log.Printf("Using %d workers\n", numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		consume.Go(func() error {
-			return StartWorker(cctx, jobchan)
+			return job.StartWorker(cctx, jobchan)
 		})
 	}
 
@@ -138,67 +140,4 @@ func run(ctx context.Context) error {
 		return err
 	}
 	return consume.Wait()
-}
-
-func processPackage(ctx context.Context, pkg Package, dir string, jobchan chan<- Job) error {
-	btfName := fmt.Sprintf("%s.btf", pkg.Filename())
-	btfPath := filepath.Join(dir, btfName)
-	btfTarName := fmt.Sprintf("%s.btf.tar.xz", pkg.Filename())
-	btfTarPath := filepath.Join(dir, btfTarName)
-	if exists(btfTarPath) {
-		log.Printf("SKIP: %s exists\n", btfTarName)
-		return nil
-	}
-
-	var vmlinuxPath string
-	kj := &kernelExtractionJob{
-		pkg:   pkg,
-		dir:   dir,
-		reply: make(chan interface{}),
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case jobchan <- kj:
-	}
-
-	reply := <-kj.reply
-	switch v := reply.(type) {
-	case error:
-		return v
-	case string:
-		vmlinuxPath = v
-	}
-
-	hasBTF, err := hasBTFSection(vmlinuxPath)
-	if err != nil {
-		return fmt.Errorf("btf check: %s", err)
-	}
-	if hasBTF {
-		// removing here is bad for re-runs, because it has to re-download
-		os.Remove(vmlinuxPath)
-		return ErrHasBTF
-	}
-
-	job := &btfGenerationJob{
-		vmlinuxPath: vmlinuxPath,
-		btfPath:     btfPath,
-		btfTarPath:  btfTarPath,
-	}
-
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case jobchan <- job:
-	}
-	return nil
-}
-
-type Repository interface {
-	GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- Job) error
-}
-
-func exists(p string) bool {
-	_, err := os.Stat(p)
-	return err == nil
 }

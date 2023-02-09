@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"compress/gzip"
@@ -15,7 +15,7 @@ import (
 	fastxz "github.com/therootcompany/xz"
 )
 
-func extractVmlinuxFromRPM(ctx context.Context, rpmpath string, vmlinuxPath string) error {
+func ExtractVmlinuxFromRPM(ctx context.Context, rpmpath string, vmlinuxPath string) error {
 	f, err := os.Open(rpmpath)
 	if err != nil {
 		return err
@@ -75,7 +75,7 @@ func extractVmlinuxFromRPM(ctx context.Context, rpmpath string, vmlinuxPath stri
 				return err
 			}
 
-			counter := &progressCounter{Op: "Extract", Name: hdr.Name, Size: uint64(hdr.Size)}
+			counter := &ProgressCounter{Op: "Extract", Name: hdr.Name, Size: uint64(hdr.Size)}
 			if _, err := io.Copy(outf, io.TeeReader(cpioReader, counter)); err != nil {
 				outf.Close()
 				os.Remove(vmlinuxPath)

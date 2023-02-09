@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-type progressCounter struct {
+type ProgressCounter struct {
 	Op   string
 	Size uint64
 	Name string
@@ -17,7 +17,7 @@ type progressCounter struct {
 	lastReport time.Time
 }
 
-func (wc *progressCounter) Write(p []byte) (int, error) {
+func (wc *ProgressCounter) Write(p []byte) (int, error) {
 	n := len(p)
 	wc.written += uint64(n)
 
@@ -27,7 +27,7 @@ func (wc *progressCounter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (wc *progressCounter) printProgress() {
+func (wc *ProgressCounter) printProgress() {
 	// Clear the line by using a character return to go back to the start and remove
 	// the remaining characters by filling it with spaces
 	//fmt.Printf("\r%s", strings.Repeat(" ", 35))
