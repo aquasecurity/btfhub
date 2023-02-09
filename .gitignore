@@ -1,3 +1,4 @@
 ./btfhub
 ./archive/*
 ./custom-archive/*
+.check*
