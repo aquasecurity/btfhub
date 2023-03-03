@@ -1,4 +1,7 @@
-./btfhub
-./archive/*
-./custom-archive/*
+btfhub
+# arvhices
+archive/*
+custom-archive/*
+# makefile leftovers
 .check*
+# binary
