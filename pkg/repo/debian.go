@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/aquasecurity/btfhub/pkg/job"
-	pkg "github.com/aquasecurity/btfhub/pkg/package"
+	"github.com/aquasecurity/btfhub/pkg/pkg"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 

@@ -12,7 +12,7 @@ import (
 	"runtime"
 
 	"github.com/aquasecurity/btfhub/pkg/job"
-	repo "github.com/aquasecurity/btfhub/pkg/repository"
+	"github.com/aquasecurity/btfhub/pkg/repo"
 	"golang.org/x/sync/errgroup"
 )
 

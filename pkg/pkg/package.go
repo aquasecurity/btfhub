@@ -12,7 +12,7 @@ import (
 type Package interface {
 	String() string
 	Filename() string
-	Version() kernel.KernelVersion
+	Version() kernel.Version
 	Download(ctx context.Context, dir string) (string, error)
 	ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error
 }

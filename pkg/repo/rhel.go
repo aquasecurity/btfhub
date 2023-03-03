@@ -9,14 +9,14 @@ import (
 
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/kernel"
-	pkg "github.com/aquasecurity/btfhub/pkg/package"
+	"github.com/aquasecurity/btfhub/pkg/pkg"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
 type RHELRepo struct {
 	archs           map[string]string
 	releaseVersions map[string]string
-	minVersion      kernel.KernelVersion
+	minVersion      kernel.Version
 }
 
 func NewRHELRepo() Repository {

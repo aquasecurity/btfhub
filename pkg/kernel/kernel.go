@@ -5,24 +5,24 @@ import (
 	"strconv"
 )
 
-type KernelVersion struct {
+type Version struct {
 	str  string
 	ints []int
 }
 
-func NewKernelVersion(v string) KernelVersion {
-	return KernelVersion{str: v, ints: splitIntoInts(v)}
+func NewKernelVersion(v string) Version {
+	return Version{str: v, ints: splitIntoInts(v)}
 }
 
-func (k KernelVersion) IsZero() bool {
+func (k Version) IsZero() bool {
 	return k.str == ""
 }
 
-func (k KernelVersion) String() string {
+func (k Version) String() string {
 	return k.str
 }
 
-func (k KernelVersion) Less(j KernelVersion) bool {
+func (k Version) Less(j Version) bool {
 	vi, vj := k.ints, j.ints
 	for x, vni := range vi {
 		if x > (len(vj) - 1) {

@@ -14,7 +14,7 @@ import (
 type RHELPackage struct {
 	Name          string
 	Architecture  string
-	KernelVersion kernel.KernelVersion
+	KernelVersion kernel.Version
 	NameOfFile    string
 }
 
@@ -22,7 +22,7 @@ func (pkg *RHELPackage) Filename() string {
 	return pkg.NameOfFile
 }
 
-func (pkg *RHELPackage) Version() kernel.KernelVersion {
+func (pkg *RHELPackage) Version() kernel.Version {
 	return pkg.KernelVersion
 }
 

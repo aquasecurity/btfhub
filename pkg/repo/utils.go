@@ -14,12 +14,12 @@ import (
 
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/kernel"
-	pkg "github.com/aquasecurity/btfhub/pkg/package"
+	"github.com/aquasecurity/btfhub/pkg/pkg"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 	"golang.org/x/exp/maps"
 )
 
-func parseYumPackages(rdr io.Reader, minVersion kernel.KernelVersion) ([]pkg.Package, error) {
+func parseYumPackages(rdr io.Reader, minVersion kernel.Version) ([]pkg.Package, error) {
 	pkgs := map[string]pkg.Package{}
 	bio := bufio.NewScanner(rdr)
 	for bio.Scan() {
