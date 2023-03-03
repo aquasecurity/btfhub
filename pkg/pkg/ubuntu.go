@@ -20,7 +20,7 @@ import (
 type UbuntuPackage struct {
 	Name          string
 	Architecture  string
-	KernelVersion kernel.KernelVersion
+	KernelVersion kernel.Version
 	NameOfFile    string
 	URL           string
 	Size          uint64
@@ -36,7 +36,7 @@ func (pkg *UbuntuPackage) Filename() string {
 	return pkg.NameOfFile
 }
 
-func (pkg *UbuntuPackage) Version() kernel.KernelVersion {
+func (pkg *UbuntuPackage) Version() kernel.Version {
 	return pkg.KernelVersion
 }
 
