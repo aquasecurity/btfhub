@@ -122,13 +122,14 @@ func run(ctx context.Context) error {
 			cr := r
 			for _, a := range archs {
 				ca := a
+				newd := d
 				produce.Go(func() error {
-					wd := filepath.Join(archiveDir, d, cr, ca)
+					wd := filepath.Join(archiveDir, newd, cr, ca)
 					if err := os.MkdirAll(wd, 0775); err != nil {
 						return fmt.Errorf("arch dir: %s", err)
 					}
 
-					repo := repoCreators[d]()
+					repo := repoCreators[newd]()
 					return repo.GetKernelPackages(pctx, wd, cr, ca, jobchan)
 				})
 			}
