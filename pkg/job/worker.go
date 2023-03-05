@@ -10,7 +10,7 @@ func StartWorker(ctx context.Context, jobchan <-chan Job) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case job, ok := <-jobchan:
+		case job, ok := <-jobchan: // receive job (Do, Reply)
 			if !ok {
 				return nil
 			}

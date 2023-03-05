@@ -71,45 +71,63 @@ func yumSearch(ctx context.Context, pkg string) (*bytes.Buffer, error) {
 	return stdout, nil
 }
 
-func processPackage(ctx context.Context, pkg pkg.Package, dir string, jobchan chan<- job.Job) error {
+// processPackage creates a kernel extraction job and waits for the reply. It
+// then creates a BTF generation job and sends it to the worker. It returns
+func processPackage(
+	ctx context.Context,
+	pkg pkg.Package,
+	workDir string,
+	jobChan chan<- job.Job,
+) error {
+
 	btfName := fmt.Sprintf("%s.btf", pkg.Filename())
-	btfPath := filepath.Join(dir, btfName)
+	btfPath := filepath.Join(workDir, btfName)
 	btfTarName := fmt.Sprintf("%s.btf.tar.xz", pkg.Filename())
-	btfTarPath := filepath.Join(dir, btfTarName)
+	btfTarPath := filepath.Join(workDir, btfTarName)
+
 	if utils.Exists(btfTarPath) {
 		log.Printf("SKIP: %s exists\n", btfTarName)
 		return nil
 	}
 
-	var vmlinuxPath string
-	kj := &job.KernelExtractionJob{
+	// 1st job: Extract kernel vmlinux file
+
+	kernelExtJob := &job.KernelExtractionJob{
 		Pkg:       pkg,
-		Dir:       dir,
+		WorkDir:   workDir,
 		ReplyChan: make(chan interface{}),
 	}
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case jobchan <- kj:
+	case jobChan <- kernelExtJob: // send vmlinux file extraction job to worker
 	}
 
-	reply := <-kj.ReplyChan
+	reply := <-kernelExtJob.ReplyChan // wait for reply
+
+	var vmlinuxPath string
+
 	switch v := reply.(type) {
 	case error:
 		return v
 	case string:
-		vmlinuxPath = v
+		vmlinuxPath = v // receive vmlinux path from worker
 	}
+
+	// Check if BTF is already present in vmlinux (will skip further packages)
 
 	hasBTF, err := utils.HasBTFSection(vmlinuxPath)
 	if err != nil {
-		return fmt.Errorf("btf check: %s", err)
+		return fmt.Errorf("BTF check: %s", err)
 	}
 	if hasBTF {
-		// removing here is bad for re-runs, because it has to re-download
+		// Removing here is bad for re-runs (it has to re-download)
 		os.Remove(vmlinuxPath)
 		return utils.ErrHasBTF
 	}
+
+	// 2nd job: Generate BTF file from vmlinux file
 
 	job := &job.BTFGenerationJob{
 		VmlinuxPath: vmlinuxPath,
@@ -120,7 +138,8 @@ func processPackage(ctx context.Context, pkg pkg.Package, dir string, jobchan ch
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case jobchan <- job:
+	case jobChan <- job: // send BTF generation job to worker
 	}
+
 	return nil
 }

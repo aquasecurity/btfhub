@@ -17,13 +17,13 @@ type Package interface {
 	ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error
 }
 
-func PackageBTFExists(p Package, dir string) bool {
-	fp := filepath.Join(dir, fmt.Sprintf("%s.btf.tar.xz", p.Filename()))
+func PackageBTFExists(p Package, workDir string) bool {
+	fp := filepath.Join(workDir, fmt.Sprintf("%s.btf.tar.xz", p.Filename()))
 	return utils.Exists(fp)
 }
 
-func PackageFailed(p Package, dir string) bool {
-	fp := filepath.Join(dir, fmt.Sprintf("%s.failed", p.Filename()))
+func PackageFailed(p Package, workDir string) bool {
+	fp := filepath.Join(workDir, fmt.Sprintf("%s.failed", p.Filename()))
 	return utils.Exists(fp)
 }
 
