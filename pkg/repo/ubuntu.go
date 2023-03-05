@@ -16,16 +16,16 @@ import (
 )
 
 type UbuntuRepo struct {
-	repo        map[string]string // arch to url
-	debugRepo   string
-	kernelTypes map[string]string
-	archs       map[string]string
+	repo        map[string]string // map[altArch]url
+	debugRepo   string            // url
+	kernelTypes map[string]string // map[signed,unsigned]regex
+	archs       map[string]string // map[arch]altArch
 }
 
 func NewUbuntuRepo() Repository {
 	return &UbuntuRepo{
 		repo: map[string]string{
-			"amd64": "http://us-east-1.ec2.archive.ubuntu.com/ubuntu",
+			"amd64": "http://archive.ubuntu.com/ubuntu",
 			"arm64": "http://ports.ubuntu.com",
 		},
 		debugRepo: "http://ddebs.ubuntu.com",
@@ -40,73 +40,106 @@ func NewUbuntuRepo() Repository {
 	}
 }
 
-func (d *UbuntuRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
-	altArch := d.archs[arch]
+// GetKernelPackages downloads Packages.xz from the main, updates and universe,
+// from the debug repo and parses the list of kernel packages to download. It
+// then filters out kernel packages that we already have or failed to download.
+// It then creates jobs to download the kernel packages and sends them to the
+// job channel.
+func (uRepo *UbuntuRepo) GetKernelPackages(
+	ctx context.Context,
+	workDir string,
+	release string,
+	arch string,
+	jobChan chan<- job.Job, // receive jobs to run
+) error {
 
-	// get main apt kernel list
-	rawPkgs, err := pkg.GetPackageList(ctx, d.repo[altArch], release, altArch)
+	altArch := uRepo.archs[arch]
+
+	// Get Packages.xz from main, updates and universe repos
+
+	repoURL := uRepo.repo[altArch]
+
+	rawPkgs, err := pkg.GetPackageList(ctx, repoURL, release, altArch)
 	if err != nil {
 		return fmt.Errorf("main: %s", err)
 	}
-	pkgs, err := pkg.ParseAPTPackages(rawPkgs, d.repo[altArch], release)
+
+	// Get the list of kernel packages to download from those repos
+
+	kernelPkgs, err := pkg.ParseAPTPackages(rawPkgs, repoURL, release)
 	if err != nil {
 		return fmt.Errorf("parsing main package list: %s", err)
 	}
 
-	var filteredPkgs []*pkg.UbuntuPackage
-	for _, restr := range d.kernelTypes {
+	// Filter out kernel packages that we already have or failed to download
+
+	var filteredKernelPkgs []*pkg.UbuntuPackage
+
+	for _, restr := range uRepo.kernelTypes {
 		re := regexp.MustCompile(fmt.Sprintf("%s$", restr))
-		for _, p := range pkgs {
+		for _, p := range kernelPkgs {
 			match := re.FindStringSubmatch(p.Name)
 			if match == nil {
 				continue
 			}
-			if pkg.PackageBTFExists(p, dir) || pkg.PackageFailed(p, dir) {
+			if pkg.PackageBTFExists(p, workDir) || pkg.PackageFailed(p, workDir) {
 				continue
 			}
+			// match = [filename = linux-image-{unsigned}-XXX, flavor = generic, gke, aws, ...]
 			p.Flavor = match[1]
-			filteredPkgs = append(filteredPkgs, p)
+			filteredKernelPkgs = append(filteredKernelPkgs, p)
 		}
 	}
 
-	// get ddebs package list
-	dbgRawPkgs, err := pkg.GetPackageList(ctx, d.debugRepo, release, altArch)
+	// Get Packages.xz from debug repo
+
+	dbgRawPkgs, err := pkg.GetPackageList(ctx, uRepo.debugRepo, release, altArch)
 	if err != nil {
 		return fmt.Errorf("ddebs: %s", err)
 	}
-	dbgPkgs, err := pkg.ParseAPTPackages(dbgRawPkgs, d.debugRepo, release)
+
+	// Get the list of kernel packages to download from debug repo
+
+	kernelDbgPkgs, err := pkg.ParseAPTPackages(dbgRawPkgs, uRepo.debugRepo, release)
 	if err != nil {
 		return fmt.Errorf("parsing debug package list: %s", err)
 	}
-	dbgPkgMap := make(map[string]*pkg.UbuntuPackage)
-	for _, restr := range d.kernelTypes {
+
+	// Filter out kernel packages that we already have or failed to download
+
+	filteredKernelDbgPkgMap := make(map[string]*pkg.UbuntuPackage) // map[filename]package
+
+	for _, restr := range uRepo.kernelTypes {
 		re := regexp.MustCompile(fmt.Sprintf("%s-dbgsym", restr))
-		for _, p := range dbgPkgs {
+		for _, p := range kernelDbgPkgs {
 			match := re.FindStringSubmatch(p.Name)
 			if match == nil {
 				continue
 			}
-			if p.Size < 10_000_000 {
+			if p.Size < 10_000_000 { // ignore smaller than 10MB (signed vs unsigned emptiness)
 				continue
 			}
-			if pkg.PackageBTFExists(p, dir) || pkg.PackageFailed(p, dir) {
+			if pkg.PackageBTFExists(p, workDir) || pkg.PackageFailed(p, workDir) {
 				continue
 			}
+			// match = [filename = linux-image-{unsigned}-XXX-dbgsym, flavor = generic, gke, aws, ...]
 			p.Flavor = match[1]
-			if dp, ok := dbgPkgMap[p.Filename()]; !ok {
-				dbgPkgMap[p.Filename()] = p
+			if dp, ok := filteredKernelDbgPkgMap[p.Filename()]; !ok {
+				filteredKernelDbgPkgMap[p.Filename()] = p
 			} else {
 				log.Printf("DEBUG: duplicate %s filename from %s (other %s)", p.Filename(), p, dp)
 			}
 		}
 	}
 
-	// add pseudo-packages for missing entries to try pull-lp-ddebs
-	for _, p := range filteredPkgs {
-		_, ok := dbgPkgMap[p.Filename()]
+	// Check if debug package exists for each kernel package and, if not,
+	// add pseudo-packages for the missing entries (try pull-lp-ddebs later on)
+
+	for _, p := range filteredKernelPkgs {
+		_, ok := filteredKernelDbgPkgMap[p.Filename()]
 		if !ok {
 			log.Printf("DEBUG: adding launchpad package for %s\n", p.Name)
-			dbgPkgMap[p.Filename()] = &pkg.UbuntuPackage{
+			filteredKernelDbgPkgMap[p.Filename()] = &pkg.UbuntuPackage{
 				// always use unsigned, because signed never has the actual kernel
 				Name:          fmt.Sprintf("linux-image-unsigned-%s-dbgsym", p.Filename()),
 				Architecture:  p.Architecture,
@@ -119,41 +152,63 @@ func (d *UbuntuRepo) GetKernelPackages(ctx context.Context, dir string, release 
 		}
 	}
 
-	log.Printf("DEBUG: %d %s packages\n", len(dbgPkgMap), arch)
-	pkgsByKernelType := make(map[string][]pkg.Package)
-	for _, p := range dbgPkgMap {
-		ks, ok := pkgsByKernelType[p.Flavor]
+	log.Printf("DEBUG: %d %s packages\n", len(filteredKernelDbgPkgMap), arch)
+
+	// type: signed/unsigned
+	// flavor: generic, gcp, aws, ...
+
+	pkgsByKernelFlavor := make(map[string][]pkg.Package)
+
+	for _, p := range filteredKernelDbgPkgMap { // map[filename]package
+		pkgSlice, ok := pkgsByKernelFlavor[p.Flavor]
 		if !ok {
-			ks = make([]pkg.Package, 0, 1)
+			pkgSlice = make([]pkg.Package, 0, 1)
 		}
-		ks = append(ks, p)
-		pkgsByKernelType[p.Flavor] = ks
+		pkgSlice = append(pkgSlice, p)
+		pkgsByKernelFlavor[p.Flavor] = pkgSlice
 	}
 
-	log.Printf("DEBUG: %d %s flavors\n", len(pkgsByKernelType), arch)
-	for kt, ks := range pkgsByKernelType {
-		sort.Sort(pkg.ByVersion(ks))
-		log.Printf("DEBUG: %s %s flavor %d kernels\n", arch, kt, len(ks))
+	log.Printf("DEBUG: %d %s flavors\n", len(pkgsByKernelFlavor), arch)
+
+	for flavor, pkgSlice := range pkgsByKernelFlavor {
+		sort.Sort(pkg.ByVersion(pkgSlice))
+		log.Printf("DEBUG: %s %s flavor %d kernels\n", arch, flavor, len(pkgSlice))
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
-	for kt, ks := range pkgsByKernelType {
-		ckt := kt
-		cks := ks
+
+	for flavor, pkgSlice := range pkgsByKernelFlavor {
+		theFlavor := flavor
+		thePkgSlice := pkgSlice
+
+		// Start a goroutine for each flavor to process all of its packages
+
 		g.Go(func() error {
-			log.Printf("DEBUG: start kernel type %s %s (%d pkgs)\n", ckt, arch, len(cks))
-			err := d.processPackages(ctx, dir, cks, jobchan)
-			log.Printf("DEBUG: end kernel type %s %s\n", ckt, arch)
+			log.Printf("DEBUG: start kernel flavor %s %s (%d pkgs)\n", theFlavor, arch, len(thePkgSlice))
+			err := uRepo.processPackages(ctx, workDir, thePkgSlice, jobChan)
+			log.Printf("DEBUG: end kernel flavor %s %s\n", theFlavor, arch)
 			return err
 		})
 	}
+
 	return g.Wait()
 }
 
-func (d *UbuntuRepo) processPackages(ctx context.Context, dir string, pkgs []pkg.Package, jobchan chan<- job.Job) error {
+// processPackages processes a list of packages, sending jobs to the job channel.
+func (d *UbuntuRepo) processPackages(
+	ctx context.Context,
+	workDir string,
+	pkgs []pkg.Package,
+	jobChan chan<- job.Job,
+) error {
+
 	for i, pkg := range pkgs {
 		log.Printf("DEBUG: start pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
-		if err := processPackage(ctx, pkg, dir, jobchan); err != nil {
+
+		// Will create 2 jobs for each package: one to extract vmlinux file, the
+		// other to extract BTF info from it
+
+		if err := processPackage(ctx, pkg, workDir, jobChan); err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil
@@ -161,10 +216,13 @@ func (d *UbuntuRepo) processPackages(ctx context.Context, dir string, pkgs []pkg
 			if errors.Is(err, context.Canceled) {
 				return nil
 			}
+
 			log.Printf("ERROR: %s: %s\n", pkg, err)
 			continue
 		}
+
 		log.Printf("DEBUG: end pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
 	}
+
 	return nil
 }

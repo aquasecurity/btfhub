@@ -24,7 +24,10 @@ func DownloadFile(ctx context.Context, url string, file string) error {
 	return Download(ctx, url, f)
 }
 
-func Download(ctx context.Context, url string, w io.Writer) error {
+func Download(ctx context.Context, url string, dest io.Writer) error {
+
+	// Request given URL
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return err
@@ -34,13 +37,24 @@ func Download(ctx context.Context, url string, w io.Writer) error {
 		return err
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("%s returned status code: %d", url, resp.StatusCode)
 	}
-	counter := &ProgressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
-	brdr := io.TeeReader(resp.Body, counter)
+
+	// Create a progress counter reader
+
+	counter := &ProgressCounter{
+		Op:   "Download",                 // operation
+		Name: resp.Request.URL.String(),  // file name
+		Size: uint64(resp.ContentLength), // file length
+	}
+	brdr := io.TeeReader(resp.Body, counter) // forward body reader to counter
+
+	// Deal with response (gzip, xz, plain): reader from the counter reader (act the body reader)
 
 	var rdr io.Reader
+
 	switch resp.Header.Get("Content-Type") {
 	case "application/x-gzip":
 		rdr, err = gzip.NewReader(brdr)
@@ -56,7 +70,8 @@ func Download(ctx context.Context, url string, w io.Writer) error {
 		rdr = brdr
 	}
 
-	_, err = io.Copy(w, rdr)
+	_, err = io.Copy(dest, rdr) // copy to destination
+
 	return err
 }
 

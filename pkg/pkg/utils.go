@@ -17,8 +17,13 @@ import (
 )
 
 func TarballBTF(ctx context.Context, btf string, out string) error {
+	// Use external tool for performance reasons
 	return utils.RunCMD(ctx, filepath.Dir(btf), "tar", "cvfJ", out, filepath.Base(btf))
 }
+
+//
+// RHEL packages
+//
 
 func yumDownload(ctx context.Context, pkg string, destdir string) error {
 	stderr := &bytes.Buffer{}
@@ -31,43 +36,54 @@ func yumDownload(ctx context.Context, pkg string, destdir string) error {
 	return nil
 }
 
-// ubuntu
+//
+// Ubuntu packages
+//
 
-func indexPackages(pkgs []*UbuntuPackage) map[string]*UbuntuPackage {
-	mp := make(map[string]*UbuntuPackage, len(pkgs))
-	for _, p := range pkgs {
-		mp[p.Filename()] = p
-	}
-	return mp
-}
-
-func GetPackageList(ctx context.Context, repo string, release string, arch string) (*bytes.Buffer, error) {
+// GetPackageList downloads the Packages.xz file from the given repo and release
+func GetPackageList(ctx context.Context, repo string, release string, arch string) (
+	*bytes.Buffer, error,
+) {
+	var err error
 	rawPkgs := &bytes.Buffer{}
-	if err := utils.Download(ctx, fmt.Sprintf("%s/dists/%s/main/binary-%s/Packages.xz", repo, release, arch), rawPkgs); err != nil {
+
+	main := fmt.Sprintf("%s/dists/%s/main/binary-%s/Packages.xz", repo, release, arch)
+	updates := fmt.Sprintf("%s/dists/%s-updates/main/binary-%s/Packages.xz", repo, release, arch)
+	universe := fmt.Sprintf("%s/dists/%s-updates/universe/binary-%s/Packages.xz", repo, release, arch)
+
+	if err = utils.Download(ctx, main, rawPkgs); err != nil {
 		return nil, fmt.Errorf("download base package list: %s", err)
 	}
-	if err := utils.Download(ctx, fmt.Sprintf("%s/dists/%s-updates/main/binary-%s/Packages.xz", repo, release, arch), rawPkgs); err != nil {
+	if err = utils.Download(ctx, updates, rawPkgs); err != nil {
 		return nil, fmt.Errorf("download updates main package list: %s", err)
 	}
-	if err := utils.Download(ctx, fmt.Sprintf("%s/dists/%s-updates/universe/binary-%s/Packages.xz", repo, release, arch), rawPkgs); err != nil {
+	if err = utils.Download(ctx, universe, rawPkgs); err != nil {
 		return nil, fmt.Errorf("download updates universe package list: %s", err)
 	}
+
 	return rawPkgs, nil
 }
 
-func ParseAPTPackages(r io.Reader, baseurl string, release string) ([]*UbuntuPackage, error) {
-	var pkgs []*UbuntuPackage
-	p := &UbuntuPackage{Release: release}
-	bio := bufio.NewScanner(r)
+func ParseAPTPackages(rawPkgs io.Reader, repoURL string, release string) (
+	[]*UbuntuPackage, error,
+) {
+	var kernelPkgs []*UbuntuPackage
+
+	pkg := &UbuntuPackage{Release: release}
+
+	bio := bufio.NewScanner(rawPkgs)
 	bio.Buffer(make([]byte, 4096), 128*1024)
+
 	for bio.Scan() {
 		line := bio.Text()
+
+		// Start parsing the next package
+
 		if len(line) == 0 {
-			// between packages
-			if strings.HasPrefix(p.Name, "linux-image-") && p.isValid() {
-				pkgs = append(pkgs, p)
+			if strings.HasPrefix(pkg.Name, "linux-image-") && pkg.isValid() {
+				kernelPkgs = append(kernelPkgs, pkg) // save the previous kernel package
 			}
-			p = &UbuntuPackage{Release: release}
+			pkg = &UbuntuPackage{Release: release}
 			continue
 		}
 		if line[0] == ' ' {
@@ -77,23 +93,26 @@ func ParseAPTPackages(r io.Reader, baseurl string, release string) ([]*UbuntuPac
 		if !found {
 			continue
 		}
+
+		// Populate current package fields
+
 		switch name {
 		case "Package":
-			p.Name = val
+			pkg.Name = val
 			fn := strings.TrimPrefix(val, "linux-image-")
 			fn = strings.TrimSuffix(fn, "-dbgsym")
 			fn = strings.TrimSuffix(fn, "-dbg")
-			p.NameOfFile = strings.TrimPrefix(fn, "unsigned-")
+			pkg.NameOfFile = strings.TrimPrefix(fn, "unsigned-")
 		case "Architecture":
-			p.Architecture = val
+			pkg.Architecture = val
 		case "Version":
-			p.KernelVersion = kernel.NewKernelVersion(val)
+			pkg.KernelVersion = kernel.NewKernelVersion(val)
 		case "Filename":
-			p.URL = fmt.Sprintf("%s/%s", baseurl, val)
+			pkg.URL = fmt.Sprintf("%s/%s", repoURL, val)
 		case "Size":
 			sz, err := strconv.ParseUint(val, 10, 64)
 			if err == nil {
-				p.Size = sz
+				pkg.Size = sz
 			}
 		default:
 			continue
@@ -102,9 +121,12 @@ func ParseAPTPackages(r io.Reader, baseurl string, release string) ([]*UbuntuPac
 	if err := bio.Err(); err != nil {
 		return nil, err
 	}
-	if p.isValid() && strings.HasPrefix(p.Name, "linux-image-") {
-		pkgs = append(pkgs, p)
+
+	// Save the last package
+
+	if pkg.isValid() && strings.HasPrefix(pkg.Name, "linux-image-") {
+		kernelPkgs = append(kernelPkgs, pkg)
 	}
 
-	return pkgs, nil
+	return kernelPkgs, nil
 }

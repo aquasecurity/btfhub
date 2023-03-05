@@ -63,6 +63,7 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+
 	if distro != "" {
 		if _, ok := distroReleases[distro]; !ok {
 			return fmt.Errorf("invalid distribution %s", distro)
@@ -80,9 +81,24 @@ func run(ctx context.Context) error {
 			}
 		}
 	} else {
-		// cannot select specific version, if no specific distro is selected
-		release = ""
+		release = "" // no release if no distro is selected
 	}
+
+	// Distributions
+
+	distros := []string{"ubuntu", "debian", "fedora", "centos", "ol"} // RHEL needs subscription
+	if distro != "" {
+		distros = []string{distro}
+	}
+
+	// Architectures
+
+	archs := []string{"x86_64", "arm64"}
+	if arch != "" {
+		archs = []string{arch}
+	}
+
+	// Environment
 
 	basedir, err := os.Getwd()
 	if err != nil {
@@ -90,55 +106,63 @@ func run(ctx context.Context) error {
 	}
 	archiveDir := path.Join(basedir, "archive")
 
-	// RHEL excluded here because we don't have direct external access to repos
-	distros := []string{"ubuntu", "debian", "fedora", "centos", "ol"}
-	if distro != "" {
-		distros = []string{distro}
-	}
-	archs := []string{"x86_64", "arm64"}
-	if arch != "" {
-		archs = []string{arch}
-	}
-
-	jobchan := make(chan job.Job)
-	consume, cctx := errgroup.WithContext(ctx)
 	if numWorkers == 0 {
 		numWorkers = runtime.NumCPU() - 1
+		if numWorkers > 12 {
+			numWorkers = 12 // limit to 12 workers max (for bigger machines)
+		}
 	}
+
+	// Workers: job consumers (pool)
+
+	jobChan := make(chan job.Job)
+	consume, consCtx := errgroup.WithContext(ctx)
+
 	log.Printf("Using %d workers\n", numWorkers)
 	for i := 0; i < numWorkers; i++ {
 		consume.Go(func() error {
-			return job.StartWorker(cctx, jobchan)
+			return job.StartWorker(consCtx, jobChan)
 		})
 	}
 
-	produce, pctx := errgroup.WithContext(ctx)
+	// Workers: job producers (per distro, per release)
+
+	produce, prodCtx := errgroup.WithContext(ctx)
+
 	for _, d := range distros {
 		releases := distroReleases[d]
 		if release != "" {
 			releases = []string{release}
 		}
 		for _, r := range releases {
-			cr := r
+			release := r
 			for _, a := range archs {
-				ca := a
-				newd := d
+				arch := a
+				distro := d
 				produce.Go(func() error {
-					wd := filepath.Join(archiveDir, newd, cr, ca)
-					if err := os.MkdirAll(wd, 0775); err != nil {
+					// workDir example: ./archive/ubuntu/focal/x86_64
+					workDir := filepath.Join(archiveDir, distro, release, arch)
+					if err := os.MkdirAll(workDir, 0775); err != nil {
 						return fmt.Errorf("arch dir: %s", err)
 					}
 
-					repo := repoCreators[newd]()
-					return repo.GetKernelPackages(pctx, wd, cr, ca, jobchan)
+					// pick the repository creator and get the kernel packages
+					repo := repoCreators[distro]()
+
+					return repo.GetKernelPackages(prodCtx, workDir, release, arch, jobChan)
 				})
+
 			}
 		}
 	}
+
+	// Cleanup
+
 	err = produce.Wait()
-	close(jobchan)
+	close(jobChan)
 	if err != nil {
 		return err
 	}
+
 	return consume.Wait()
 }

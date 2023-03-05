@@ -7,5 +7,11 @@ import (
 )
 
 type Repository interface {
-	GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error
+	GetKernelPackages(
+		ctx context.Context,
+		workDir string,
+		release string,
+		arch string,
+		jobChan chan<- job.Job,
+	) error
 }
