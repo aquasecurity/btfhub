@@ -116,7 +116,7 @@ GO_ENV += GOOS=linux
 GO_ENV += CC=$(CMD_CLANG)
 GO_ENV += GOARCH=$(GO_ARCH)
 
-SRC_DIRS = ./cmd/
+SRC_DIRS = ./cmd/ ./pkg/
 SRC = $(shell find $(SRC_DIRS) -type f -name '*.go' ! -name '*_test.go')
 
 $(PROGRAM): \
@@ -188,7 +188,7 @@ take: \
 	echo -n " ... "
 	echo ""
 	read nop
-	$(CMD_RSYNC) -av --exclude=.git $(BTFHUB_ARCHIVE_DIR)/ $(LOCAL_ARCHIVE_DIR)/
+	$(CMD_RSYNC) -av --exclude=.git $(LOCAL_ARCHIVE_DIR)/ $(BTFHUB_ARCHIVE_DIR)/
 	echo ""
 	echo "INFO: now goto $(BTFHUB_ARCHIVE_DIR) and commit the changes"
 	echo ""
