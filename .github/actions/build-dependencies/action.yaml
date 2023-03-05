@@ -1,0 +1,34 @@
+name: Build Dependencies
+description: |
+  Install build dependencies to test and compile btfhub artifacts
+inputs:
+  # set default versions in a single place (as default)
+  go-version:
+    description: go version
+    required: true
+    default: "1.19.5"
+runs:
+  using: composite
+  steps:
+    #
+    - name: Install Base Packages
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bsdutils build-essential tar pahole
+      shell: bash
+    #
+    - name: Install Golang
+      run: |
+        curl -L -o /tmp/go.tar.xz https://go.dev/dl/go${{ inputs.go-version }}.linux-amd64.tar.gz
+        sudo tar -C /usr/local -xzf /tmp/go.tar.xz
+        sudo update-alternatives --remove-all go || true
+        sudo update-alternatives --remove-all gofmt || true
+        sudo update-alternatives --install /usr/bin/go go /usr/local/go/bin/go 1
+        sudo update-alternatives --install /usr/bin/gofmt gofmt /usr/local/go/bin/gofmt 1
+      shell: bash
+    #
+    - name: Install staticchecker
+      run: |
+        GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@latest
+        sudo cp $HOME/go/bin/staticcheck /usr/bin/
+      shell: bash
