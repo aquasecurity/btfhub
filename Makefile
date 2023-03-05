@@ -171,7 +171,7 @@ bring: \
 	echo -n " ... "
 	read nop
 	echo ""
-	$(CMD_RSYNC) -av --delete --exclude=.git $(BTFHUB_ARCHIVE_DIR)/ $(LOCAL_ARCHIVE_DIR)/
+	$(CMD_RSYNC) -av --delete --exclude=.git* $(BTFHUB_ARCHIVE_DIR)/ $(LOCAL_ARCHIVE_DIR)/
 	echo ""
 
 .PHONY: take
@@ -188,7 +188,7 @@ take: \
 	echo -n " ... "
 	echo ""
 	read nop
-	$(CMD_RSYNC) -av --exclude=.git $(LOCAL_ARCHIVE_DIR)/ $(BTFHUB_ARCHIVE_DIR)/
+	$(CMD_RSYNC) -av --exclude=.git* $(LOCAL_ARCHIVE_DIR)/ $(BTFHUB_ARCHIVE_DIR)/
 	echo ""
 	echo "INFO: now goto $(BTFHUB_ARCHIVE_DIR) and commit the changes"
 	echo ""
