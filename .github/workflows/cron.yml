@@ -8,24 +8,27 @@ jobs:
     name: Update BTF Archive
     runs-on: ubuntu-22.04
     steps:
-      # Authenticate
+      #
       - name: Authenticate
         run: |
-          gh auth login --with-token <<<'${{ secrets.GITHUB_TOKEN }}'
+          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
         with:
+          repository: aquasecurity/btfhub
           path: ./btfhub
-      #
+          token: ${{ secrets.PAT_RAFAEL }}
+      # Authenticate
       - name: Checkout BTFHub Archive
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub-archive
           path: ./btfhub-archive
+          token: ${{ secrets.PAT_RAFAEL }}
       #
       - name: Install Dependencies
-        uses: ./.github/actions/build-dependencies
+        uses: ./btfhub/.github/actions/build-dependencies
       #
       - name: Bring current BTFHub Archive
         run: |
@@ -52,11 +55,11 @@ jobs:
           cd btfhub-archive
           git status
       #
-      # - name: Commit and Push to BTFHub repo
-      #   run: |
-      #     cd btfhub-archive-repo
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git add -A
-      #     git diff-index --quiet HEAD || git commit -m "Update BTF Archives"
-      #     git push
+      - name: Commit and Push to BTFHub Archive
+        run: |
+          cd btfhub-archive
+          git config --local user.name "Rafael David Tinoco"
+          git config --local user.email "rafaeldtinoco@gmail.com"
+          git add -A
+          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
+          git push
