@@ -111,6 +111,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 
 	for _, restr := range uRepo.kernelTypes {
 		re := regexp.MustCompile(fmt.Sprintf("%s-dbgsym", restr))
+
 		for _, p := range kernelDbgPkgs {
 			match := re.FindStringSubmatch(p.Name)
 			if match == nil {
@@ -205,8 +206,10 @@ func (d *UbuntuRepo) processPackages(
 	for i, pkg := range pkgs {
 		log.Printf("DEBUG: start pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
 
-		// Will create 2 jobs for each package: one to extract vmlinux file, the
-		// other to extract BTF info from it
+		// Jobs about to be created:
+		//
+		// 1. Download package and extract vmlinux file
+		// 2. Extract BTF info from vmlinux file
 
 		if err := processPackage(ctx, pkg, workDir, jobChan); err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {

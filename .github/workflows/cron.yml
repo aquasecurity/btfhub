@@ -44,6 +44,7 @@ jobs:
         run: |
           cd btfhub
           ./btfhub -workers 10 -d ubuntu
+          ./btfhub -workers 10 -d debian
       #
       - name: Take new BTFs to BTFHub Archive
         run: |

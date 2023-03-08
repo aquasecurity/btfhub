@@ -53,46 +53,80 @@ func NewDebianRepo() Repository {
 	}
 }
 
-func (d *DebianRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
+func (d *DebianRepo) GetKernelPackages(
+	ctx context.Context,
+	workDir string,
+	release string,
+	arch string,
+	jobchan chan<- job.Job,
+) error {
 	altArch := d.archs[arch]
 
 	var pkgs []pkg.Package
+
 	for _, r := range d.repos[release] {
 		rawPkgs := &bytes.Buffer{}
-		repo := fmt.Sprintf(r, release, altArch)
+
+		// Get Packages.xz from main, updates and security
+
+		repo := fmt.Sprintf(r, release, altArch) // ..debian/dists/%s/%s/main.../Packages.gz
+
 		if err := utils.Download(ctx, repo, rawPkgs); err != nil {
 			return fmt.Errorf("download package list %s: %s", repo, err)
 		}
-		repourl, err := url.Parse(repo)
+
+		// Get the list of kernel packages to download from those repos
+
+		repoURL, err := url.Parse(repo)
 		if err != nil {
 			return fmt.Errorf("repo url parse: %s", err)
 		}
-		repourl.Path = "/" + strings.Split(repourl.Path, "/")[1]
-		rpkgs, err := pkg.ParseAPTPackages(rawPkgs, repourl.String(), release)
+
+		// Get the list of kernel packages to download from debug repo
+
+		repoURL.Path = "/" + strings.Split(repoURL.Path, "/")[1]
+		kernelDbgPkgs, err := pkg.ParseAPTPackages(rawPkgs, repoURL.String(), release)
 		if err != nil {
 			return fmt.Errorf("parsing package list: %s", err)
 		}
 
-		re := regexp.MustCompile("linux-image-[0-9]+\\.[0-9]+\\.[0-9].*-dbg")
-		for _, r := range rpkgs {
-			match := re.FindStringSubmatch(r.Name)
+		// Filter out packages that aren't debug kernel packages
+
+		re := regexp.MustCompile(`linux-image-[0-9]+\.[0-9]+\.[0-9].*-dbg`)
+
+		for _, p := range kernelDbgPkgs {
+			match := re.FindStringSubmatch(p.Name)
 			if match == nil {
 				continue
 			}
-			pkgs = append(pkgs, r)
+			pkgs = append(pkgs, p)
 		}
 	}
 
 	sort.Sort(pkg.ByVersion(pkgs))
-	for _, pkg := range pkgs {
-		err := processPackage(ctx, pkg, dir, jobchan)
+	for i, pkg := range pkgs {
+		log.Printf("DEBUG: start pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
+
+		// Jobs about to be created:
+		//
+		// 1. Download package and extract vmlinux file
+		// 2. Extract BTF info from vmlinux file
+
+		err := processPackage(ctx, pkg, workDir, jobchan)
 		if err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil
 			}
-			return err
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+
+			log.Printf("ERROR: %s: %s\n", pkg, err)
+			continue
 		}
+
+		log.Printf("DEBUG: end pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
 	}
 	return nil
 }
