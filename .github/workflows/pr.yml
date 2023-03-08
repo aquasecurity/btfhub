@@ -1,0 +1,71 @@
+name: PR
+on:
+  workflow_dispatch: {}
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "!docs/**"
+      - "!archive/**"
+      - "!custom-archive/**"
+      - "!tools/bin/**"
+      - "!**.yaml"
+      - "!**.md"
+      - "!**.txt"
+      - "!**.conf"
+      # override previous rules:
+      - "**.c"
+      - "**.h"
+      - "**.go"
+      - "**.sh"
+      - ".github/workflows/pr.yaml"
+concurrency:
+  group: ${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  #
+  # CODE VERIFICATION
+  #
+  verify-analyze-code:
+    name: Verify and Analyze Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Install Dependencies
+        uses: ./.github/actions/build-dependencies
+      - name: Lint
+        run: |
+          if test -z "$(gofmt -l .)"; then
+            echo "Congrats! There is nothing to fix."
+          else
+            echo "The following lines should be fixed."
+            gofmt -s -d .
+            exit 1
+          fi
+      - name: Check Golang Vet
+        run: |
+          make check-vet
+      - name: Check with StaticCheck
+        run: |
+          make check-staticcheck
+  #
+  # CODE TESTS
+  #
+  unit-tests:
+    name: Unit Tests
+    needs:
+      - verify-analyze-code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Install Dependencies
+        uses: ./.github/actions/build-dependencies
+      - name: Run Unit Tests
+        run: |
+          make test-unit

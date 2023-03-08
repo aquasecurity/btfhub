@@ -25,9 +25,10 @@ var centosArchives = []string{
 	"https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
 	"https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/%s/Everything/%s/debug/Packages/k/",
 }
-var centosDownload = []string{
-	"https://dl.fedoraproject.org/pub/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
-}
+
+// var centosDownload = []string{
+// 	"https://dl.fedoraproject.org/pub/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
+// }
 
 func NewFedoraRepo() Repository {
 	return &FedoraRepo{

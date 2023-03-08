@@ -30,6 +30,7 @@ CMD_CAT ?= cat
 CMD_MD5 ?= md5sum
 CMD_RSYNC ?= rsync
 CMD_CLANG ?= clang
+CMD_STATICCHECK ?= staticcheck
 
 .check_%:
 #
@@ -105,7 +106,7 @@ PROGRAM ?= btfhub
 #
 
 STATIC ?= 0
-GO_TAGS_EBPF =
+GO_TAGS =
 
 ifeq ($(STATIC), 1)
     GO_TAGS := $(GO_TAGS),netgo
@@ -125,7 +126,7 @@ $(PROGRAM): \
 	.checkver_$(CMD_GO)
 #
 	$(GO_ENV) $(CMD_GO) build \
-		-tags $(GO_TAGS_EBPF) \
+		-tags $(GO_TAGS) \
 		-ldflags="$(GO_DEBUG_FLAG) \
 			-X main.version=\"$(VERSION)\" \
 			" \
@@ -147,6 +148,32 @@ test-unit: \
 		-short \
 		-race \
 		-v \
+		./cmd/... \
+		./pkg/...
+
+#
+# code checkers
+#
+
+.PHONY: check-vet
+check-vet: \
+	| .check_$(CMD_GO) \
+	.checkver_$(CMD_GO) \
+#
+	$(GO_ENV) \
+	$(CMD_GO) vet \
+		-tags $(GO_TAGS) \
+		./cmd/... \
+		./pkg/...
+
+.PHONY: check-staticcheck
+check-staticcheck: \
+	| .check_$(CMD_GO) \
+	.checkver_$(CMD_GO) \
+#
+	$(GO_ENV) \
+	$(CMD_STATICCHECK) -f stylish \
+		-tags $(GO_TAGS) \
 		./cmd/... \
 		./pkg/...
 
