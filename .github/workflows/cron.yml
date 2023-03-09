@@ -47,6 +47,7 @@ jobs:
       #
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
+          cd btfhub
           ./btfhub -workers 10 -d debian
       #
       - name: Take new BTFs to BTFHub Archive
