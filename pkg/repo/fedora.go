@@ -16,9 +16,8 @@ import (
 )
 
 type FedoraRepo struct {
-	archs      map[string]string
-	repos      map[string][]string
-	minVersion kernel.Version
+	archs map[string]string
+	repos map[string][]string
 }
 
 var olderRepoOrganization = []string{
@@ -58,7 +57,6 @@ func NewFedoraRepo() Repository {
 			// "36": repoOrganization,
 			// ...
 		},
-		minVersion: kernel.NewKernelVersion("4.10.0-957"),
 	}
 }
 
@@ -116,10 +114,6 @@ func (d *FedoraRepo) GetKernelPackages(
 				Architecture:  altArch,
 				URL:           l,
 				KernelVersion: kernel.NewKernelVersion(match[1]),
-			}
-
-			if p.Version().Less(d.minVersion) {
-				continue
 			}
 
 			pkgs = append(pkgs, p)
