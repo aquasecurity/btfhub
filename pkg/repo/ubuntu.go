@@ -43,8 +43,8 @@ func NewUbuntuRepo() Repository {
 // GetKernelPackages downloads Packages.xz from the main, updates and universe,
 // from the debug repo and parses the list of kernel packages to download. It
 // then filters out kernel packages that we already have or failed to download.
-// It then creates jobs to download the kernel packages and sends them to the
-// job channel.
+// It then process the list of kernel packages: they will be downloaded and then
+// the btf files will be extracted from them.
 func (uRepo *UbuntuRepo) GetKernelPackages(
 	ctx context.Context,
 	workDir string,
@@ -172,7 +172,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 	log.Printf("DEBUG: %d %s flavors\n", len(pkgsByKernelFlavor), arch)
 
 	for flavor, pkgSlice := range pkgsByKernelFlavor {
-		sort.Sort(pkg.ByVersion(pkgSlice))
+		sort.Sort(pkg.ByVersion(pkgSlice)) // so kernels can be skipped if previous has BTF already
 		log.Printf("DEBUG: %s %s flavor %d kernels\n", arch, flavor, len(pkgSlice))
 	}
 

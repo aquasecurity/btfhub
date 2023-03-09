@@ -215,7 +215,12 @@ take: \
 	echo -n " ... "
 	echo ""
 	read nop
-	$(CMD_RSYNC) -av --exclude=.git* --exclude=*.deb --exclude=*.ddeb $(LOCAL_ARCHIVE_DIR)/ $(BTFHUB_ARCHIVE_DIR)/
+	$(CMD_RSYNC) -av \
+		--exclude=.git* \
+		--exclude=*.deb \
+		--exclude=*.ddeb \
+		--exclude=*.rpm \
+		$(LOCAL_ARCHIVE_DIR)/ $(BTFHUB_ARCHIVE_DIR)/
 	echo ""
 	echo "INFO: now goto $(BTFHUB_ARCHIVE_DIR) and commit the changes"
 	echo ""

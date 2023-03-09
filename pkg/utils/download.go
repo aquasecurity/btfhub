@@ -24,6 +24,8 @@ func DownloadFile(ctx context.Context, url string, file string) error {
 	return Download(ctx, url, f)
 }
 
+// Download downloads a file from a given URL, and writes it to a given
+// destination, which can be a file or a pipe
 func Download(ctx context.Context, url string, dest io.Writer) error {
 
 	// Request given URL
@@ -75,35 +77,57 @@ func Download(ctx context.Context, url string, dest io.Writer) error {
 	return err
 }
 
-func GetLinks(repourl string) ([]string, error) {
-	resp, err := http.Get(repourl)
+// GetLinks returns a list of links from a given URL
+func GetLinks(repoURL string) ([]string, error) {
+
+	// Read the repo URL
+
+	resp, err := http.Get(repoURL)
 	if err != nil {
-		return nil, fmt.Errorf("get links from %s: %s", repourl, err)
+		return nil, fmt.Errorf("get links from %s: %s", repoURL, err)
 	}
 	defer resp.Body.Close()
+
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("url %s returned %d", repourl, resp.StatusCode)
+		return nil, fmt.Errorf("url %s returned %d", repoURL, resp.StatusCode)
 	}
 
+	re := regexp.MustCompile(`.*href="([^"]+)"`)
+
 	var links []string
-	re := regexp.MustCompile(`href="([^"]+)"`)
-	counter := &ProgressCounter{Op: "Download", Name: resp.Request.URL.String(), Size: uint64(resp.ContentLength)}
+
+	// Create a progress counter reader
+
+	counter := &ProgressCounter{
+		Op:   "Download",
+		Name: resp.Request.URL.String(),
+		Size: uint64(resp.ContentLength),
+	}
+
 	scan := bufio.NewScanner(io.TeeReader(resp.Body, counter))
+
 	for scan.Scan() {
-		matches := re.FindAllStringSubmatch(string(scan.Bytes()), -1)
+		line := string(scan.Bytes())
+
+		matches := re.FindAllStringSubmatch(line, -1)
 		if matches == nil {
 			continue
 		}
+
+		// Find all links in the line
+
 		for _, m := range matches {
-			res, err := url.JoinPath(repourl, m[1])
+			res, err := url.JoinPath(repoURL, m[1])
 			if err != nil {
 				continue
 			}
 			links = append(links, res)
 		}
 	}
+
 	if err := scan.Err(); err != nil {
 		return nil, fmt.Errorf("error reading response: %s", err)
 	}
+
 	return links, nil
 }
