@@ -26,13 +26,22 @@ func TarballBTF(ctx context.Context, btf string, out string) error {
 //
 
 func yumDownload(ctx context.Context, pkg string, destdir string) error {
+
 	stderr := &bytes.Buffer{}
-	cmd := exec.CommandContext(ctx, "sudo", "yum", "install", "-y", "--downloadonly", fmt.Sprintf("--downloaddir=%s", destdir), pkg)
+
+	destDirParam := fmt.Sprintf("--downloaddir=%s", destdir)
+
+	cmd := exec.CommandContext(ctx,
+		"sudo", "yum", "install", "-y", "--downloadonly", destDirParam, pkg,
+	)
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = stderr
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("yum download %s: %s\n%s", pkg, err, stderr.String())
 	}
+
 	return nil
 }
 

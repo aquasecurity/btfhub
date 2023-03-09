@@ -30,24 +30,24 @@ func (pkg *FedoraPackage) String() string {
 	return pkg.Name
 }
 
-func (pkg *FedoraPackage) Download(ctx context.Context, dir string) (string, error) {
-	localFile := fmt.Sprintf("%s.rpm", pkg.NameOfFile)
-	rpmpath := filepath.Join(dir, localFile)
-	if utils.Exists(rpmpath) {
-		return rpmpath, nil
-	}
-
-	if err := utils.DownloadFile(ctx, pkg.URL, rpmpath); err != nil {
-		os.Remove(rpmpath)
-		return "", fmt.Errorf("downloading rpm package: %s", err)
-	}
-	return rpmpath, nil
-}
-
-func (pkg *FedoraPackage) Extract(ctx context.Context, pkgpath string, vmlinuxPath string) error {
+func (pkg *FedoraPackage) ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error {
 	return utils.ExtractVmlinuxFromRPM(ctx, pkgpath, vmlinuxPath)
 }
 
-func (pkg *FedoraPackage) ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error {
-	return fmt.Errorf("not implemented")
+func (pkg *FedoraPackage) Download(ctx context.Context, workDir string) (string, error) {
+
+	localFile := fmt.Sprintf("%s.rpm", pkg.NameOfFile)
+	rpmPath := filepath.Join(workDir, localFile)
+
+	if utils.Exists(rpmPath) {
+		return rpmPath, nil
+	}
+
+	err := utils.DownloadFile(ctx, pkg.URL, rpmPath)
+	if err != nil {
+		os.Remove(rpmPath)
+		return "", fmt.Errorf("downloading rpm package: %s", err)
+	}
+
+	return rpmPath, nil
 }

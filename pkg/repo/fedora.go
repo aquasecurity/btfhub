@@ -21,14 +21,20 @@ type FedoraRepo struct {
 	minVersion kernel.Version
 }
 
-var centosArchives = []string{
+var olderRepoOrganization = []string{
 	"https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
-	"https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/%s/Everything/%s/debug/Packages/k/",
+	"https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/%s/%s/debug/k/",
 }
 
-// var centosDownload = []string{
-// 	"https://dl.fedoraproject.org/pub/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
-// }
+var oldRepoOrganization = []string{
+	"https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
+	"https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/%s/%s/debug/Packages/k/",
+}
+
+var repoOrganization = []string{
+	"https://archives.fedoraproject.org/pub/archive/fedora/linux/releases/%s/Everything/%s/debug/tree/Packages/k/",
+	"https://archives.fedoraproject.org/pub/archive/fedora/linux/updates/%s/Everything/%s/debug/Packages/",
+}
 
 func NewFedoraRepo() Repository {
 	return &FedoraRepo{
@@ -37,46 +43,73 @@ func NewFedoraRepo() Repository {
 			"arm64":  "aarch64",
 		},
 		repos: map[string][]string{
-			"24": centosArchives,
-			"25": centosArchives,
-			"26": centosArchives,
-			"27": centosArchives,
-			"28": centosArchives,
-			"29": centosArchives,
-			"30": centosArchives,
-			"31": centosArchives,
-			//"32": centosArchives,
-			//"33": centosArchives,
-			//"34": centosDownload,
+			"24": olderRepoOrganization, // amd64
+			"25": oldRepoOrganization,   // amd64
+			"26": oldRepoOrganization,   // amd64
+			"27": oldRepoOrganization,   // amd64
+			"28": repoOrganization,      // amd64, arm64
+			"29": repoOrganization,      // amd64, arm64
+			"30": repoOrganization,      // amd64, arm64
+			"31": repoOrganization,      // amd64, arm64
+			// "32": repoOrganization,
+			// "33": repoOrganization,
+			// "34": repoOrganization,
+			// "35": repoOrganization,
+			// "36": repoOrganization,
+			// ...
 		},
-		minVersion: kernel.NewKernelVersion("3.10.0-957"),
+		minVersion: kernel.NewKernelVersion("4.10.0-957"),
 	}
 }
 
-func (d *FedoraRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
-	altArch := d.archs[arch]
-	var repos []string
-	for _, r := range d.repos[release] {
-		repos = append(repos, fmt.Sprintf(r, release, altArch))
+func (d *FedoraRepo) GetKernelPackages(
+	ctx context.Context,
+	workDir string,
+	release string,
+	arch string,
+	jobChan chan<- job.Job,
+) error {
+
+	if release == "24" || release == "25" || release == "26" || release == "27" {
+		if arch == "arm64" {
+			log.Printf("INFO: Fedora %s does not have arm64 packages\n", release)
+			return nil
+		}
 	}
 
+	var pkgs []pkg.Package
 	var links []string
+	var repos []string
+
+	altArch := d.archs[arch]
+
+	for _, r := range d.repos[release] {
+		repoURL := fmt.Sprintf(r, release, altArch)
+		repos = append(repos, repoURL)
+	}
+
+	// Pick all the links from multiple repositories
+
 	for _, repo := range repos {
 		rlinks, err := utils.GetLinks(repo)
 		if err != nil {
-			//return fmt.Errorf("list packages: %s", err)
 			log.Printf("ERROR: list packages: %s\n", err)
 			continue
 		}
 		links = append(links, rlinks...)
 	}
 
-	var pkgs []pkg.Package
+	// Only links that match the kernel-debuginfo pattern
+
 	kre := regexp.MustCompile(fmt.Sprintf(`kernel-debuginfo-([0-9].*\.%s)\.rpm`, altArch))
+
 	for _, l := range links {
 		match := kre.FindStringSubmatch(l)
 		if match != nil {
 			name := strings.TrimSuffix(match[0], ".rpm")
+
+			// Create a package object from the link and add it to pkgs list
+
 			p := &pkg.FedoraPackage{
 				Name:          name,
 				NameOfFile:    match[1],
@@ -84,24 +117,41 @@ func (d *FedoraRepo) GetKernelPackages(ctx context.Context, dir string, release 
 				URL:           l,
 				KernelVersion: kernel.NewKernelVersion(match[1]),
 			}
+
 			if p.Version().Less(d.minVersion) {
 				continue
 			}
+
 			pkgs = append(pkgs, p)
 		}
 	}
 
-	sort.Sort(pkg.ByVersion(pkgs))
+	sort.Sort(pkg.ByVersion(pkgs)) // so kernels can be skipped if previous has BTF already
 
-	for _, pkg := range pkgs {
-		err := processPackage(ctx, pkg, dir, jobchan)
+	for i, pkg := range pkgs {
+		log.Printf("DEBUG: start pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
+
+		// Jobs about to be created:
+		//
+		// 1. Download package and extract vmlinux file
+		// 2. Extract BTF info from vmlinux file
+
+		err := processPackage(ctx, pkg, workDir, jobChan)
 		if err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil
 			}
-			return err
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+
+			log.Printf("ERROR: %s: %s\n", pkg, err)
+			continue
 		}
+
+		log.Printf("DEBUG: end pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
 	}
+
 	return nil
 }

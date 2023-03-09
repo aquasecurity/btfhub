@@ -35,19 +35,24 @@ func (pkg *RHELPackage) ExtractKernel(ctx context.Context, pkgpath string, vmlin
 }
 
 func (pkg *RHELPackage) Download(ctx context.Context, dir string) (string, error) {
+
 	localFile := fmt.Sprintf("%s.rpm", pkg.Name)
 	rpmpath := filepath.Join(dir, localFile)
+
 	if utils.Exists(rpmpath) {
 		return rpmpath, nil
 	}
 
-	if err := yumDownload(ctx, pkg.Name, dir); err != nil {
+	err := yumDownload(ctx, pkg.Name, dir)
+	if err != nil {
 		os.Remove(rpmpath)
 		return "", fmt.Errorf("rpm download: %s", err)
 	}
-	// we don't need the common RPM file
-	commonrpmpath := strings.ReplaceAll(localFile, "kernel-debuginfo-", fmt.Sprintf("kernel-debuginfo-common-%s-", pkg.Architecture))
-	os.Remove(commonrpmpath)
+
+	commonArch := fmt.Sprintf("kernel-debuginfo-common-%s-", pkg.Architecture)
+	commonRPMPath := strings.ReplaceAll(localFile, "kernel-debuginfo-", commonArch)
+
+	os.Remove(commonRPMPath) // no need for common rpm
 
 	return rpmpath, nil
 }
