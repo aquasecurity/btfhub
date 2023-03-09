@@ -43,22 +43,27 @@ jobs:
       - name: Fetch and Generate new BTFs (UBUNTU)
         run: |
           cd btfhub
-          ./btfhub -workers 10 -d ubuntu
+          ./btfhub -workers 12 -d ubuntu
       #
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
           cd btfhub
-          ./btfhub -workers 10 -d debian
+          ./btfhub -workers 12 -d debian
       #
       - name: Fetch and Generate new BTFs (CENTOS)
         run: |
           cd btfhub
-          ./btfhub -workers 10 -d centos
+          ./btfhub -workers 12 -d centos
       #
       - name: Fetch and Generate new BTFs (FEDORA)
         run: |
           cd btfhub
-          ./btfhub -workers 10 -d fedora
+          ./btfhub -workers 12 -d fedora
+      #
+      - name: Fetch and Generate new BTFs (ORACLE)
+        run: |
+          cd btfhub
+          ./btfhub -workers 12 -d ol
       #
       - name: Take new BTFs to BTFHub Archive
         run: |
