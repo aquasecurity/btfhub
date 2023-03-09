@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"fmt"
 	"time"
+
+	"github.com/dustin/go-humanize"
 )
 
 type ProgressCounter struct {
@@ -36,9 +39,16 @@ func (wc *ProgressCounter) printProgress() {
 	// fmt.Printf("%s\n", time.Since(wc.lastReport))
 
 	// Return again and print current status of download
-	//
-	// pct := uint64((float64(wc.written) / float64(wc.Size)) * 100)
-	// fmt.Printf("%sing %s: %s / %s - %d%% complete\n", wc.Op, wc.Name, humanize.Bytes(wc.written), humanize.Bytes(wc.Size), pct)
+
+	pct := uint64((float64(wc.written) / float64(wc.Size)) * 100)
+
+	fmt.Printf("%sing %s: %s / %s - %d%% complete\n",
+		wc.Op,
+		wc.Name,
+		humanize.Bytes(wc.written),
+		humanize.Bytes(wc.Size),
+		pct,
+	)
 
 	wc.lastReport = time.Now()
 }

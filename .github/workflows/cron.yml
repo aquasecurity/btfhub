@@ -55,6 +55,11 @@ jobs:
           cd btfhub
           ./btfhub -workers 10 -d centos
       #
+      - name: Fetch and Generate new BTFs (FEDORA)
+        run: |
+          cd btfhub
+          ./btfhub -workers 10 -d fedora
+      #
       - name: Take new BTFs to BTFHub Archive
         run: |
           cd btfhub

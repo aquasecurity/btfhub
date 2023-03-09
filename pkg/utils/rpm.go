@@ -15,42 +15,49 @@ import (
 	fastxz "github.com/therootcompany/xz"
 )
 
-func ExtractVmlinuxFromRPM(ctx context.Context, rpmpath string, vmlinuxPath string) error {
-	f, err := os.Open(rpmpath)
+func ExtractVmlinuxFromRPM(ctx context.Context, rpmPath string, vmlinuxPath string) error {
+	file, err := os.Open(rpmPath)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer file.Close()
 
-	rpkg, err := rpm.Read(f)
+	rpmPkg, err := rpm.Read(file)
 	if err != nil {
 		return fmt.Errorf("rpm read: %s", err)
 	}
+
 	var crdr io.Reader
-	switch rpkg.PayloadCompression() {
+
+	// Find out about RPM package compression
+
+	switch rpmPkg.PayloadCompression() {
 	case "xz":
-		crdr, err = fastxz.NewReader(f, 0)
+		crdr, err = fastxz.NewReader(file, 0)
 		if err != nil {
 			return fmt.Errorf("xz reader: %s", err)
 		}
 	case "zstd":
-		zrdr := zstd.NewReader(f)
+		zrdr := zstd.NewReader(file)
 		defer zrdr.Close()
 		crdr = zrdr
 	case "gzip":
-		grdr, err := gzip.NewReader(f)
+		grdr, err := gzip.NewReader(file)
 		if err != nil {
 			return fmt.Errorf("xz reader: %s", err)
 		}
 		defer grdr.Close()
 		crdr = grdr
 	default:
-		return fmt.Errorf("unsupported compression: %s", rpkg.PayloadCompression())
+		return fmt.Errorf("unsupported compression: %s", rpmPkg.PayloadCompression())
 	}
 
-	if format := rpkg.PayloadFormat(); format != "cpio" {
+	if format := rpmPkg.PayloadFormat(); format != "cpio" {
 		return fmt.Errorf("unsupported payload format: %s", format)
 	}
+
+	// Read from cpio archive
+
 	cpioReader := cpio.NewReader(crdr)
 
 	for {
@@ -58,7 +65,7 @@ func ExtractVmlinuxFromRPM(ctx context.Context, rpmpath string, vmlinuxPath stri
 			return err
 		}
 
-		hdr, err := cpioReader.Next()
+		cpioHeader, err := cpioReader.Next()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -66,22 +73,34 @@ func ExtractVmlinuxFromRPM(ctx context.Context, rpmpath string, vmlinuxPath stri
 			return fmt.Errorf("cpio next: %s", err)
 		}
 
-		if !hdr.Mode.IsRegular() {
+		if !cpioHeader.Mode.IsRegular() {
 			continue
 		}
-		if strings.Contains(hdr.Name, "vmlinux") {
-			outf, err := os.Create(vmlinuxPath)
+
+		// Extract vmlinux file
+
+		if strings.Contains(cpioHeader.Name, "vmlinux") {
+			outFile, err := os.Create(vmlinuxPath)
 			if err != nil {
 				return err
 			}
 
-			counter := &ProgressCounter{Op: "Extract", Name: hdr.Name, Size: uint64(hdr.Size)}
-			if _, err := io.Copy(outf, io.TeeReader(cpioReader, counter)); err != nil {
-				outf.Close()
+			counter := &ProgressCounter{
+				Op:   "Extract",
+				Name: cpioHeader.Name,
+				Size: uint64(cpioHeader.Size),
+			}
+
+			_, err = io.Copy(outFile, io.TeeReader(cpioReader, counter))
+
+			if err != nil {
+				outFile.Close()
 				os.Remove(vmlinuxPath)
 				return fmt.Errorf("cpio file copy: %s", err)
 			}
-			outf.Close()
+
+			outFile.Close()
+
 			return nil
 		}
 	}

@@ -52,7 +52,7 @@ func (d *CentosRepo) GetKernelPackages(
 
 	links, err := utils.GetLinks(repoURL)
 	if err != nil {
-		return fmt.Errorf("list packages: %s", err)
+		return fmt.Errorf("ERROR: list packages: %s", err)
 	}
 
 	kre := regexp.MustCompile(fmt.Sprintf(`kernel-debuginfo-([-1-9].*\.%s)\.rpm`, altArch))
