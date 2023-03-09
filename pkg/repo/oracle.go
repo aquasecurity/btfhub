@@ -35,20 +35,34 @@ func NewOracleRepo() Repository {
 	}
 }
 
-func (d *oracleRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
-	repo := d.repos[release]
+func (d *oracleRepo) GetKernelPackages(
+	ctx context.Context,
+	workDir string,
+	release string,
+	arch string,
+	jobChan chan<- job.Job,
+) error {
+	var pkgs []pkg.Package
+
 	altArch := d.archs[arch]
 
-	links, err := utils.GetLinks(repo)
+	// Pick all the links that match the kernel-debuginfo pattern
+
+	repoURL := d.repos[release]
+
+	links, err := utils.GetLinks(repoURL)
 	if err != nil {
-		return fmt.Errorf("repo links: %s", err)
+		return fmt.Errorf("ERROR: list packages: %s", err)
 	}
 
-	var pkgs []pkg.Package
 	kre := regexp.MustCompile(fmt.Sprintf(`kernel(?:-uek)?-debuginfo-([0-9].*\.%s)\.rpm`, altArch))
+
 	for _, l := range links {
 		match := kre.FindStringSubmatch(l)
 		if match != nil {
+
+			// Create a package object from the link and add it to pkgs list
+
 			p := &pkg.CentOSPackage{
 				Name:          strings.TrimSuffix(match[0], ".rpm"),
 				NameOfFile:    match[1],
@@ -59,21 +73,36 @@ func (d *oracleRepo) GetKernelPackages(ctx context.Context, dir string, release 
 			if p.Version().Less(d.minVersion) {
 				continue
 			}
+
 			pkgs = append(pkgs, p)
 		}
 	}
 
-	sort.Sort(pkg.ByVersion(pkgs))
+	sort.Sort(pkg.ByVersion(pkgs)) // so kernels can be skipped if previous has BTF already
 
-	for _, pkg := range pkgs {
-		err := processPackage(ctx, pkg, dir, jobchan)
+	for i, pkg := range pkgs {
+		log.Printf("DEBUG: start pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
+
+		// Jobs about to be created:
+		//
+		// 1. Download package and extract vmlinux file
+		// 2. Extract BTF info from vmlinux file
+
+		err := processPackage(ctx, pkg, workDir, jobChan)
 		if err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil
 			}
-			return err
+			if errors.Is(err, context.Canceled) {
+				return nil
+			}
+
+			log.Printf("ERROR: %s: %s\n", pkg, err)
+			continue
 		}
+
+		log.Printf("DEBUG: end pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
 	}
 
 	return nil
