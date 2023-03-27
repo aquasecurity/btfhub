@@ -12,7 +12,7 @@ Because of that, together with [Kinvolk](https://github.com/kinvolk/) and
 
 You may use [BTFhub](https://github.com/aquasecurity/btfhub) and
 [BTFhub-archive](https://github.com/aquasecurity/btfhub-archive) to generate
-smaller BTF files. The tailored BTf files are so small they can be embedded in
+smaller BTF files. The tailored BTF files are so small they can be embedded in
 an eBPF based application, allowing it to support several hundreds of kernels
 by default.
 
