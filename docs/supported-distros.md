@@ -9,7 +9,7 @@ and **BTF** supportability over their kernel versions.
 In the tables bellow you will find BPF, BTF and HUB columns:
 
 * BPF - kernel has support for BPF programs (with or without embedded BTF info)
-* BTF - kernel is compiled with DEBUG_INFO_BTF (/sys/kernel/bpf/vmlinux avail)
+* BTF - kernel is compiled with DEBUG_INFO_BTF (/sys/kernel/btf/vmlinux avail)
 * HUB - there is a 1:1 kernel <-> BTF file available in this hub
 
 ### [CentOS](https://en.wikipedia.org/wiki/CentOS)
