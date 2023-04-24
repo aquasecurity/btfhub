@@ -12,8 +12,10 @@ runs:
   steps:
     - name: Install Base Packages
       run: |
+        echo 'MIRRORSITE=http://archive.ubuntu.com/ubuntu' | sudo tee '/etc/pbuilderrc'
         sudo apt-get update
-        sudo apt-get install -y bsdutils build-essential pkgconf
+        sudo apt-get install -y ubuntu-dev-tools
+        sudo apt-get install -y bsdutils build-essential pkgconf pahole
         sudo apt-get install -y zlib1g-dev libelf-dev
         sudo apt-get install -y software-properties-common
       shell: bash
