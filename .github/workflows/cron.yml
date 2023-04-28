@@ -6,12 +6,25 @@ on:
 jobs:
   build:
     name: Update BTF Archive
-    runs-on: ubuntu-22.04
+    env:
+      HOME: "/tmp/root"
+      GOPATH: "/tmp/go"
+      GOCACHE: "/tmp/go-cache"
+      GOROOT: "/usr/local/go"
+    runs-on:
+      [
+        "github-self-hosted_ami-0f66f3ab4856ffc3f_${{ github.event.number }}-${{ github.run_id }}",
+      ]
     steps:
       #
       - name: Authenticate
         run: |
           gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
+      #
+      - name: Install Dependencies
+        run: |
+          apt-get update -y
+          apt-get install -y pahole
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
@@ -26,9 +39,6 @@ jobs:
           repository: aquasecurity/btfhub-archive
           path: ./btfhub-archive
           token: ${{ secrets.PAT_RAFAEL }}
-      #
-      - name: Install Dependencies
-        uses: ./btfhub/.github/actions/build-dependencies
       #
       - name: Bring current BTFHub Archive
         run: |
