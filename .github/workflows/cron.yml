@@ -44,11 +44,12 @@ jobs:
         run: |
           cd btfhub
           ./btfhub -workers 12 -d ubuntu
-      #
+      # debian stretch seems to be gone, updates for buster and bullseye only
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
           cd btfhub
-          ./btfhub -workers 12 -d debian
+          ./btfhub -workers 12 -d debian -r buster
+          ./btfhub -workers 12 -d debian -r bullseye
       #
       - name: Fetch and Generate new BTFs (CENTOS)
         run: |

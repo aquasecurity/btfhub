@@ -18,7 +18,7 @@ import (
 
 var distroReleases = map[string][]string{
 	"ubuntu": {"xenial", "bionic", "focal"},
-	"debian": {"stretch", "buster"},
+	"debian": {"stretch", "buster", "bullseye"},
 	"fedora": {"24", "25", "26", "27", "28", "29", "30", "31"},
 	"centos": {"7", "8"},
 	"ol":     {"7", "8"},
@@ -77,7 +77,7 @@ func run(ctx context.Context) error {
 				}
 			}
 			if !found {
-				return fmt.Errorf("invalid distribution release %s for %s", release, distro)
+				return fmt.Errorf("invalid release %s for %s", release, distro)
 			}
 		}
 	} else {
