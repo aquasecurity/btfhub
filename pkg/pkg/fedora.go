@@ -34,12 +34,12 @@ func (pkg *FedoraPackage) ExtractKernel(ctx context.Context, pkgpath string, vml
 	return utils.ExtractVmlinuxFromRPM(ctx, pkgpath, vmlinuxPath)
 }
 
-func (pkg *FedoraPackage) Download(ctx context.Context, workDir string) (string, error) {
+func (pkg *FedoraPackage) Download(ctx context.Context, workDir string, force bool) (string, error) {
 
 	localFile := fmt.Sprintf("%s.rpm", pkg.NameOfFile)
 	rpmPath := filepath.Join(workDir, localFile)
 
-	if utils.Exists(rpmPath) {
+	if !force && utils.Exists(rpmPath) {
 		return rpmPath, nil
 	}
 

@@ -34,12 +34,12 @@ func (pkg *RHELPackage) ExtractKernel(ctx context.Context, pkgpath string, vmlin
 	return utils.ExtractVmlinuxFromRPM(ctx, pkgpath, vmlinuxPath)
 }
 
-func (pkg *RHELPackage) Download(ctx context.Context, dir string) (string, error) {
+func (pkg *RHELPackage) Download(ctx context.Context, dir string, force bool) (string, error) {
 
 	localFile := fmt.Sprintf("%s.rpm", pkg.Name)
 	rpmpath := filepath.Join(dir, localFile)
 
-	if utils.Exists(rpmpath) {
+	if !force && utils.Exists(rpmpath) {
 		return rpmpath, nil
 	}
 

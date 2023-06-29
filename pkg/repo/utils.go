@@ -77,6 +77,7 @@ func processPackage(
 	ctx context.Context,
 	p pkg.Package,
 	workDir string,
+	force bool,
 	jobChan chan<- job.Job,
 ) error {
 
@@ -88,7 +89,7 @@ func processPackage(
 	if pkg.PackageHasBTF(p, workDir) {
 		return utils.ErrHasBTF
 	}
-	if utils.Exists(btfTarPath) {
+	if !force && utils.Exists(btfTarPath) {
 		log.Printf("SKIP: %s exists\n", btfTarName)
 		return nil
 	}
@@ -99,6 +100,7 @@ func processPackage(
 		Pkg:       p,
 		WorkDir:   workDir,
 		ReplyChan: make(chan interface{}),
+		Force:     force,
 	}
 
 	select {

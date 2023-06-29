@@ -30,10 +30,10 @@ func (pkg *CentOSPackage) String() string {
 	return pkg.Name
 }
 
-func (pkg *CentOSPackage) Download(ctx context.Context, dir string) (string, error) {
+func (pkg *CentOSPackage) Download(ctx context.Context, dir string, force bool) (string, error) {
 	localFile := fmt.Sprintf("%s.rpm", pkg.NameOfFile)
 	rpmpath := filepath.Join(dir, localFile)
-	if utils.Exists(rpmpath) {
+	if !force && utils.Exists(rpmpath) {
 		return rpmpath, nil
 	}
 
