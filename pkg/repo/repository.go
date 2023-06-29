@@ -12,6 +12,7 @@ type Repository interface {
 		workDir string,
 		release string,
 		arch string,
+		force bool,
 		jobChan chan<- job.Job,
 	) error
 }

@@ -65,6 +65,7 @@ func (d *FedoraRepo) GetKernelPackages(
 	workDir string,
 	release string,
 	arch string,
+	force bool,
 	jobChan chan<- job.Job,
 ) error {
 
@@ -130,7 +131,7 @@ func (d *FedoraRepo) GetKernelPackages(
 		// 1. Download package and extract vmlinux file
 		// 2. Extract BTF info from vmlinux file
 
-		err := processPackage(ctx, pkg, workDir, jobChan)
+		err := processPackage(ctx, pkg, workDir, force, jobChan)
 		if err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)

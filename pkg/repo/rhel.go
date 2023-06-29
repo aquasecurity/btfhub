@@ -35,7 +35,14 @@ func NewRHELRepo() Repository {
 	}
 }
 
-func (d *RHELRepo) GetKernelPackages(ctx context.Context, dir string, release string, arch string, jobchan chan<- job.Job) error {
+func (d *RHELRepo) GetKernelPackages(
+	ctx context.Context,
+	workDir string,
+	release string,
+	arch string,
+	force bool,
+	jobChan chan<- job.Job,
+) error {
 	altArch := d.archs[arch]
 	rver := d.releaseVersions[release+":"+altArch]
 	if err := utils.RunCMD(ctx, "", "sudo", "subscription-manager", "release", fmt.Sprintf("--set=%s", rver)); err != nil {
@@ -53,7 +60,7 @@ func (d *RHELRepo) GetKernelPackages(ctx context.Context, dir string, release st
 	sort.Sort(pkg.ByVersion(pkgs))
 
 	for _, pkg := range pkgs {
-		err := processPackage(ctx, pkg, dir, jobchan)
+		err := processPackage(ctx, pkg, workDir, force, jobChan)
 		if err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)

@@ -63,7 +63,8 @@ func (d *DebianRepo) GetKernelPackages(
 	workDir string,
 	release string,
 	arch string,
-	jobchan chan<- job.Job,
+	force bool,
+	jobChan chan<- job.Job,
 ) error {
 	altArch := d.archs[arch]
 
@@ -118,7 +119,7 @@ func (d *DebianRepo) GetKernelPackages(
 		// 1. Download package and extract vmlinux file
 		// 2. Extract BTF info from vmlinux file
 
-		err := processPackage(ctx, pkg, workDir, jobchan)
+		err := processPackage(ctx, pkg, workDir, force, jobChan)
 		if err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)

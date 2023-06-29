@@ -50,7 +50,8 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 	workDir string,
 	release string,
 	arch string,
-	jobChan chan<- job.Job, // receive jobs to run
+	force bool,
+	jobChan chan<- job.Job,
 ) error {
 
 	altArch := uRepo.archs[arch]
@@ -82,7 +83,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 			if match == nil {
 				continue
 			}
-			if pkg.PackageBTFExists(p, workDir) || pkg.PackageFailed(p, workDir) {
+			if !force && (pkg.PackageBTFExists(p, workDir) || pkg.PackageFailed(p, workDir)) {
 				continue
 			}
 			// match = [filename = linux-image-{unsigned}-XXX, flavor = generic, gke, aws, ...]
@@ -120,7 +121,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 			if p.Size < 10_000_000 { // ignore smaller than 10MB (signed vs unsigned emptiness)
 				continue
 			}
-			if pkg.PackageBTFExists(p, workDir) || pkg.PackageFailed(p, workDir) {
+			if !force && (pkg.PackageBTFExists(p, workDir) || pkg.PackageFailed(p, workDir)) {
 				continue
 			}
 			// match = [filename = linux-image-{unsigned}-XXX-dbgsym, flavor = generic, gke, aws, ...]
@@ -186,7 +187,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 
 		g.Go(func() error {
 			log.Printf("DEBUG: start kernel flavor %s %s (%d pkgs)\n", theFlavor, arch, len(thePkgSlice))
-			err := uRepo.processPackages(ctx, workDir, thePkgSlice, jobChan)
+			err := uRepo.processPackages(ctx, workDir, thePkgSlice, force, jobChan)
 			log.Printf("DEBUG: end kernel flavor %s %s\n", theFlavor, arch)
 			return err
 		})
@@ -200,6 +201,7 @@ func (d *UbuntuRepo) processPackages(
 	ctx context.Context,
 	workDir string,
 	pkgs []pkg.Package,
+	force bool,
 	jobChan chan<- job.Job,
 ) error {
 
@@ -211,7 +213,7 @@ func (d *UbuntuRepo) processPackages(
 		// 1. Download package and extract vmlinux file
 		// 2. Extract BTF info from vmlinux file
 
-		if err := processPackage(ctx, pkg, workDir, jobChan); err != nil {
+		if err := processPackage(ctx, pkg, workDir, force, jobChan); err != nil {
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil

@@ -47,13 +47,13 @@ func (pkg *UbuntuPackage) String() string {
 
 // Download downloads the package to the specified directory and returns the
 // path to the downloaded file.
-func (pkg *UbuntuPackage) Download(ctx context.Context, dir string) (
+func (pkg *UbuntuPackage) Download(ctx context.Context, dir string, force bool) (
 	string, error,
 ) {
 	localFile := fmt.Sprintf("%s.ddeb", pkg.NameOfFile)
 	ddebPath := filepath.Join(dir, localFile)
 
-	if utils.Exists(ddebPath) {
+	if !force && utils.Exists(ddebPath) {
 		return ddebPath, nil
 	}
 

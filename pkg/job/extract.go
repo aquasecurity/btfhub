@@ -16,6 +16,7 @@ type KernelExtractionJob struct {
 	Pkg       pkg.Package
 	WorkDir   string
 	ReplyChan chan interface{}
+	Force     bool
 }
 
 // Do implements the Job interface, and is called by the worker. It downloads
@@ -26,7 +27,7 @@ func (job *KernelExtractionJob) Do(ctx context.Context) error {
 	vmlinuxName := fmt.Sprintf("vmlinux-%s", job.Pkg.Filename())
 	vmlinuxPath := filepath.Join(job.WorkDir, vmlinuxName)
 
-	if utils.Exists(vmlinuxPath) {
+	if !job.Force && utils.Exists(vmlinuxPath) {
 		job.ReplyChan <- vmlinuxPath // already extracted, reply with path
 		return nil
 	}
@@ -36,7 +37,7 @@ func (job *KernelExtractionJob) Do(ctx context.Context) error {
 	downloadStart := time.Now()
 	log.Printf("DEBUG: downloading %s\n", job.Pkg)
 
-	kernPkgPath, err := job.Pkg.Download(ctx, job.WorkDir)
+	kernPkgPath, err := job.Pkg.Download(ctx, job.WorkDir, job.Force)
 	if err != nil {
 		os.Remove(kernPkgPath)
 		return err
