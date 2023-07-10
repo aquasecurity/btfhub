@@ -24,24 +24,7 @@ jobs:
       - name: Install Dependencies
         run: |
           apt-get update -y
-          apt-get install -y ubuntu-dev-tools cmake libdw-dev
-      #
-      - name: Check out dwarves
-        uses: actions/checkout@v3
-        with:
-          repository: acmel/dwarves
-          ref: 0a1944b
-          path: ./dwarves
-          token: ${{ secrets.PAT_RAFAEL }}
-      #
-      - name: Compile pahole
-        run: |
-          pushd dwarves
-          mkdir build
-          cd build
-          cmake -D__LIB=lib ..
-          make install
-          popd
+          apt-get install -y pahole ubuntu-dev-tools
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
