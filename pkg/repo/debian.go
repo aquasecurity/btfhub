@@ -22,6 +22,10 @@ type DebianRepo struct {
 	releaseNumbers map[string]string
 }
 
+var archiveRepos = []string{
+	"http://archive.debian.org/debian/dists/%s/main/binary-%s/Packages.gz",
+}
+
 var oldRepos = []string{
 	"http://ftp.debian.org/debian/dists/%s/main/binary-%s/Packages.gz",
 	"http://ftp.debian.org/debian/dists/%s-updates/main/binary-%s/Packages.gz",
@@ -41,7 +45,7 @@ func NewDebianRepo() Repository {
 			"arm64":  "arm64",
 		},
 		repos: map[string][]string{
-			"stretch":  oldRepos,
+			"stretch":  archiveRepos,
 			"buster":   oldRepos,
 			"bullseye": newRepos,
 		},
