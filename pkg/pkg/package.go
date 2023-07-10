@@ -3,6 +3,7 @@ package pkg
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/aquasecurity/btfhub/pkg/kernel"
@@ -24,6 +25,25 @@ func PackageBTFExists(p Package, workDir string) bool {
 
 func PackageFailed(p Package, workDir string) bool {
 	fp := filepath.Join(workDir, fmt.Sprintf("%s.failed", p.Filename()))
+	return utils.Exists(fp)
+}
+
+func hasBTFPath(p Package, workDir string) string {
+	return filepath.Join(workDir, fmt.Sprintf("%s.hasbtf", p.Filename()))
+}
+
+func MarkPackageHasBTF(p Package, workDir string) error {
+	fp := hasBTFPath(p, workDir)
+	f, err := os.Create(fp)
+	if err != nil {
+		return fmt.Errorf("mark hasbtf %s: %s", fp, err)
+	}
+	f.Close()
+	return nil
+}
+
+func PackageHasBTF(p Package, workDir string) bool {
+	fp := hasBTFPath(p, workDir)
 	return utils.Exists(fp)
 }
 

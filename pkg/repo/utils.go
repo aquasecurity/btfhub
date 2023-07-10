@@ -75,16 +75,19 @@ func yumSearch(ctx context.Context, pkg string) (*bytes.Buffer, error) {
 // then creates a BTF generation job and sends it to the worker. It returns
 func processPackage(
 	ctx context.Context,
-	pkg pkg.Package,
+	p pkg.Package,
 	workDir string,
 	jobChan chan<- job.Job,
 ) error {
 
-	btfName := fmt.Sprintf("%s.btf", pkg.Filename())
+	btfName := fmt.Sprintf("%s.btf", p.Filename())
 	btfPath := filepath.Join(workDir, btfName)
-	btfTarName := fmt.Sprintf("%s.btf.tar.xz", pkg.Filename())
+	btfTarName := fmt.Sprintf("%s.btf.tar.xz", p.Filename())
 	btfTarPath := filepath.Join(workDir, btfTarName)
 
+	if pkg.PackageHasBTF(p, workDir) {
+		return utils.ErrHasBTF
+	}
 	if utils.Exists(btfTarPath) {
 		log.Printf("SKIP: %s exists\n", btfTarName)
 		return nil
@@ -93,7 +96,7 @@ func processPackage(
 	// 1st job: Extract kernel vmlinux file
 
 	kernelExtJob := &job.KernelExtractionJob{
-		Pkg:       pkg,
+		Pkg:       p,
 		WorkDir:   workDir,
 		ReplyChan: make(chan interface{}),
 	}
@@ -122,6 +125,7 @@ func processPackage(
 		return fmt.Errorf("BTF check: %s", err)
 	}
 	if hasBTF {
+		pkg.MarkPackageHasBTF(p, workDir)
 		// Removing here is bad for re-runs (it has to re-download)
 		os.Remove(vmlinuxPath)
 		return utils.ErrHasBTF
