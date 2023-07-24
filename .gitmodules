@@ -1,6 +1,6 @@
 [submodule "3rdparty/dwarves"]
 	path = 3rdparty/dwarves
 	url = https://github.com/acmel/dwarves.git
-[submodule "3rdparty/libbpf"]
-	path = 3rdparty/libbpf
-	url = https://github.com/libbpf/libbpf.git
+[submodule "3rdparty/bpftool"]
+	path = 3rdparty/bpftool
+	url = https://github.com/libbpf/bpftool/

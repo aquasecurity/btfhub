@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-git submodule update --init
+git submodule update --init --recursive 3rdparty/dwarves
 export DEBIAN_FRONTEND=noninteractive
 rm -f *.deb
 cd ./3rdparty/dwarves
