@@ -20,8 +20,8 @@ jobs:
       - name: Install needed ubuntu packages
         run: |
           export DEBIAN_FRONTEND=noninteractive
+          sudo dpkg --purge unattended-upgrades
           sudo apt-get update
-          sudo apt-get remove --purge unattended-upgrades
           sudo apt-get install -y bsdutils build-essential pkgconf
           sudo apt-get install -y zlib1g-dev libelf-dev
           sudo apt-get install -y software-properties-common
