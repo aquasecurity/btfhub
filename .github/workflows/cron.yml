@@ -20,16 +20,16 @@ jobs:
       - name: Authenticate
         run: |
           gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
-      #
-      - name: Install Dependencies
-        uses: ./.github/actions/build-dependencies
-      #
+     #
       - name: Check out BTFHub
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
           token: ${{ secrets.PAT_RAFAEL }}
+      #
+      - name: Install Dependencies
+        uses: ./.github/actions/build-dependencies
       # Authenticate
       - name: Checkout BTFHub Archive
         uses: actions/checkout@v3
