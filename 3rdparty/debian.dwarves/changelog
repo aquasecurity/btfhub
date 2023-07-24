@@ -1,0 +1,5 @@
+dwarves (1.25-0ubuntu99~202307241125) jammy; urgency=medium
+
+  * Backport from upstream: v1.24-68-g0a1944b4
+  
+ -- Rafael David Tinoco <rafaeldtinoco@ubuntu.com>  Wed, 01 Jul 2023 00:00:00 +0000

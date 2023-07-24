@@ -1,0 +1,23 @@
+#! /usr/bin/make -f
+
+include /usr/share/dpkg/default.mk
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+%:
+	@true
+
+override_dh_auto_configure:
+	mkdir -p $(CURDIR)/debian/build && \
+	cd $(CURDIR)/debian/build && \
+	cmake -DCMAKE_BUILD_TYPE=Release -DLIBBPF_EMBEDDED=on -D__LIB=lib -DCMAKE_INSTALL_PREFIX=/usr ../../ && \
+	make all
+
+override_dh_auto_install:
+	cd $(CURDIR)/debian/build && \
+	$(MAKE) install DESTDIR=../tmp && \
+	cd ../tmp && \
+	rm -rf ./usr/include ./usr/bin/ostra-cg

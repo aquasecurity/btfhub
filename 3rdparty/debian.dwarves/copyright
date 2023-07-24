@@ -1,0 +1,148 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Contact: Arnaldo Carvalho de Melo <acme@redhat.com>
+Source: https://git.kernel.org/pub/scm/devel/pahole/pahole.git/
+
+Files: *
+Copyright: 2006-2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+License: GPL-2.0-only
+
+Files: debian/*
+Copyright: 2007-2019 Domenico Andreoli <cavok@debian.org>
+Comment: package debianized by Domenico Andreoli on Wed, 08 Aug 2007 04:02:11 +0200.
+License: GPL-2.0-only
+
+Files: ostra/ostra-cg ostra/python/ostra.py
+Copyright: 2005, 2006, 2007 Arnaldo Carvalho de Melo
+License: GPL-2.0-only
+
+Files: dwarves.c dwarves_emit.c dwarves_reorganize.c
+Copyright: 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+           2006 Mandriva Conectiva S.A.
+           2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+           2007 Red Hat Inc.
+License: GPL-2.0-only
+
+Files: codiff.c ctracer.c dtagnames.c prefcnt.c
+Copyright: 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+           2006 Mandriva Conectiva S.A.
+License: GPL-2.0-only
+
+Files: pfunct.c
+Copyright: 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+           2006 Mandriva Conectiva S.A.
+           2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+License: GPL-2.0-only
+
+Files: dwarves.h
+Copyright: 2006..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
+           2006 Mandriva Conectiva S.A.
+License: GPL-2.0-only
+
+Files: dutil.c config.h.cmake lib/ctracer_relay.c lib/ctracer_relay.h
+Copyright: 2007 Arnaldo Carvalho de Melo <acme@redhat.com>
+License: GPL-2.0-only
+
+Files: dwarves_emit.h dwarves_reorganize.h
+Copyright: 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+           2006 Mandriva Conectiva S.A.
+           2007 Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+License: GPL-2.0-only
+
+Files: pglobal.c
+Copyright: 2007 Davi E. M. Arnaut <davi@haxent.com.br>
+License: GPL-2.0-only
+
+Files: pahole.c
+Copyright: 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+           2006 Mandriva Conectiva S.A.
+           2007-2008 Arnaldo Carvalho de Melo <acme@redhat.com>
+License: GPL-2.0-only
+
+Files: dwarves_fprintf.c
+Copyright: 2006 Arnaldo Carvalho de Melo <acme@mandriva.com>
+           2006 Mandriva Conectiva S.A.
+           2007..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
+           2007..2009 Red Hat Inc.
+License: GPL-2.0-only
+
+Files: dutil.h
+Copyright: 2007..2009 Arnaldo Carvalho de Melo <acme@redhat.com>
+           Cast of dozens, comes from the Linux kernel
+License: GPL-2.0-only
+
+Files: pdwtags.c syscse.c
+Copyright: 2007-2016 Arnaldo Carvalho de Melo <acme@kernel.org>
+License: GPL-2.0-only
+
+Files: gobuffer.c gobuffer.h
+Copyright: 2008 Arnaldo Carvalho de Melo <acme@redhat.com>
+License: GPL-2.0-only
+
+Files: ctf_loader.c
+Copyright: 2008 David S. Miller <davem@davemloft.net>
+License: GPL-2.0-only
+
+Files: ctf_encoder.c ctf_encoder.h dwarf_loader.c elf_symtab.c elf_symtab.h
+Copyright: 2009 Arnaldo Carvalho de Melo <acme@redhat.com>
+           2009 Red Hat Inc.
+License: GPL-2.0-only
+
+Files: scncopy.c elfcreator.c elfcreator.h
+Copyright: 2009 Red Hat Inc.
+License: GPL-2.0-only
+
+Files: regtest
+Copyright: 2009 Arnaldo Carvalho de Melo
+License: GPL-2.0-only
+
+Files: list.h
+Copyright: Cast of dozens, comes from the Linux kernel
+License: GPL-2.0-only
+
+Files: btf_encoder.c btf_encoder.h
+Copyright: 2019 Facebook
+License: GPL-2.0-only
+
+Files: ctf.h libctf.c libctf.h
+Copyright: 2019 Arnaldo Carvalho de Melo <acme@redhat.com>
+License: GPL-2.0-only
+
+Files: rbtree.c rbtree.h
+Copyright: 1999  Andrea Arcangeli <andrea@suse.de>
+           2002 David Woodhouse <dwmw2@infradead.org>
+License: GPL-2.0-or-later
+
+License: GPL-2.0-only
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 2 can be found in the file `/usr/share/common-licenses/GPL-2'.
+
+License: GPL-2.0-or-later
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published
+ by the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+ .
+ On Debian systems, the full text of the GNU General Public License
+ version 2 can be found in the file `/usr/share/common-licenses/GPL-2'.
