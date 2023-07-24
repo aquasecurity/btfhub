@@ -3,9 +3,9 @@
 include /usr/share/dpkg/default.mk
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
-
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+export DH_VERBOSE=1
+export CC = clang
+export CFLAGS = -gdwarf-4
 
 %:
 	@true

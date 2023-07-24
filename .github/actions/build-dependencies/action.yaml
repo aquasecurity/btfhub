@@ -10,7 +10,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Base Packages
+    - name: Install ubuntu packages
       run: |
         export DEBIAN_FRONTEND=noninteractive
         sudo apt-get update
@@ -20,18 +20,65 @@ runs:
         sudo apt-get install -y software-properties-common
         sudo apt-get install -y devscripts ubuntu-dev-tools
       shell: bash
-    - name: Install Recent Pahole
+    - name: Install golang
       run: |
-        ./3rdparty/pahole.sh
-      shell: bash
-    - name: Install Golang
-      run: |
+        rm -rf /usr/local/go
         curl -L -o /tmp/go.tar.xz https://go.dev/dl/go${{ inputs.go-version }}.linux-amd64.tar.gz
         sudo tar -C /usr/local -xzf /tmp/go.tar.xz
         sudo update-alternatives --remove-all go || true
         sudo update-alternatives --remove-all gofmt || true
         sudo update-alternatives --install /usr/bin/go go /usr/local/go/bin/go 1
         sudo update-alternatives --install /usr/bin/gofmt gofmt /usr/local/go/bin/gofmt 1
+      shell: bash
+    - name: Install llvm
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        cd /tmp
+        wget https://apt.llvm.org/llvm.sh
+        chmod +x llvm.sh
+        sudo ./llvm.sh 14
+        sudo apt-get install -y clang-14 clangd-14 clang-tools-14 clang-format-14
+        sudo apt-get install -y llvm-14 llvm-14-runtime llvm-14-tools 
+        sudo update-alternatives --remove-all cc || true
+        sudo update-alternatives --remove-all clang || true
+        sudo update-alternatives --remove-all clang++ || true
+        sudo update-alternatives --remove-all llc || true
+        sudo update-alternatives --remove-all lld || true
+        sudo update-alternatives --remove-all clangd || true
+        sudo update-alternatives --remove-all clang-format || true
+        sudo update-alternatives --remove-all llvm-strip || true
+        sudo update-alternatives --remove-all llvm-config || true
+        sudo update-alternatives --remove-all ld.lld || true
+        sudo update-alternatives --remove-all llvm-ar || true
+        sudo update-alternatives --remove-all llvm-nm || true
+        sudo update-alternatives --remove-all llvm-objcopy || true
+        sudo update-alternatives --remove-all llvm-objdump || true
+        sudo update-alternatives --remove-all llvm-readelf || true
+        sudo update-alternatives --remove-all opt || true
+        sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 140 \
+          --slave /usr/bin/clang++ clang++ /usr/bin/clang++-14 \
+          --slave /usr/bin/clangd clangd /usr/bin/clangd-14 \
+          --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-14 \
+          --slave /usr/bin/lld lld /usr/bin/lld-14 \
+          --slave /usr/bin/llc llc /usr/bin/llc-14 \
+          --slave /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-14 \
+          --slave /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-14 \
+          --slave /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-14 \
+          --slave /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-14 \
+          --slave /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-14 \
+          --slave /usr/bin/llvm-objcopy llvm-objcopy /usr/bin/llvm-objcopy-14 \
+          --slave /usr/bin/llvm-objdump llvm-objdump /usr/bin/llvm-objdump-14 \
+          --slave /usr/bin/llvm-readelf llvm-readelf /usr/bin/llvm-readelf-14 \
+          --slave /usr/bin/opt opt /usr/bin/opt-14 \
+          --slave /usr/bin/cc cc /usr/bin/clang-14
+      shell: bash
+    - name: Install pahole
+      run: |
+        ./3rdparty/pahole.sh
+      shell: bash
+    - name: Install bpftool
+      run: |
+        ./3rdparty/bpftool.sh
       shell: bash
     - name: Install staticchecker
       run: |

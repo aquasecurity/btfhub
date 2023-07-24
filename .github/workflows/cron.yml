@@ -22,9 +22,7 @@ jobs:
           gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
       #
       - name: Install Dependencies
-        run: |
-          apt-get update -y
-          apt-get install -y pahole ubuntu-dev-tools
+        uses: ./.github/actions/build-dependencies
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
