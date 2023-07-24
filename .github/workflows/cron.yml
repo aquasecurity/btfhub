@@ -16,20 +16,65 @@ jobs:
         "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
       ]
     steps:
-      #
+    #
+      - name: Install needed ubuntu packages
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo apt-get update
+          sudo apt-get remove --purge unattended-upgrades
+          sudo apt-get install -y bsdutils build-essential pkgconf
+          sudo apt-get install -y zlib1g-dev libelf-dev
+          sudo apt-get install -y software-properties-common
+          sudo apt-get install -y devscripts ubuntu-dev-tools
+        shell: bash
+    #
+      - name: Update alternatives for LLVM
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          sudo update-alternatives --remove-all cc || true
+          sudo update-alternatives --remove-all clang || true
+          sudo update-alternatives --remove-all clang++ || true
+          sudo update-alternatives --remove-all llc || true
+          sudo update-alternatives --remove-all lld || true
+          sudo update-alternatives --remove-all clangd || true
+          sudo update-alternatives --remove-all clang-format || true
+          sudo update-alternatives --remove-all llvm-strip || true
+          sudo update-alternatives --remove-all llvm-config || true
+          sudo update-alternatives --remove-all ld.lld || true
+          sudo update-alternatives --remove-all llvm-ar || true
+          sudo update-alternatives --remove-all llvm-nm || true
+          sudo update-alternatives --remove-all llvm-objcopy || true
+          sudo update-alternatives --remove-all llvm-objdump || true
+          sudo update-alternatives --remove-all llvm-readelf || true
+          sudo update-alternatives --remove-all opt || true
+          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 140 \
+            --slave /usr/bin/clang++ clang++ /usr/bin/clang++-14 \
+            --slave /usr/bin/clangd clangd /usr/bin/clangd-14 \
+            --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-14 \
+            --slave /usr/bin/lld lld /usr/bin/lld-14 \
+            --slave /usr/bin/llc llc /usr/bin/llc-14 \
+            --slave /usr/bin/llvm-strip llvm-strip /usr/bin/llvm-strip-14 \
+            --slave /usr/bin/llvm-config llvm-config /usr/bin/llvm-config-14 \
+            --slave /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-14 \
+            --slave /usr/bin/llvm-ar llvm-ar /usr/bin/llvm-ar-14 \
+            --slave /usr/bin/llvm-nm llvm-nm /usr/bin/llvm-nm-14 \
+            --slave /usr/bin/llvm-objcopy llvm-objcopy /usr/bin/llvm-objcopy-14 \
+            --slave /usr/bin/llvm-objdump llvm-objdump /usr/bin/llvm-objdump-14 \
+            --slave /usr/bin/llvm-readelf llvm-readelf /usr/bin/llvm-readelf-14 \
+            --slave /usr/bin/opt opt /usr/bin/opt-14 \
+            --slave /usr/bin/cc cc /usr/bin/clang-14
+        shell: bash
+     #
       - name: Authenticate
         run: |
           gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
-     #
+      #
       - name: Check out BTFHub
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
           token: ${{ secrets.PAT_RAFAEL }}
-      #
-      - name: Install Dependencies
-        uses: ./.github/actions/build-dependencies
       # Authenticate
       - name: Checkout BTFHub Archive
         uses: actions/checkout@v3
@@ -38,15 +83,29 @@ jobs:
           path: ./btfhub-archive
           token: ${{ secrets.PAT_RAFAEL }}
       #
-      - name: Bring current BTFHub Archive
+      - name: Install pahole
+        run: |
+          cd btfhub 
+          ./3rdparty/pahole.sh
+        shell: bash
+      #
+      - name: Install bpftool
         run: |
           cd btfhub
+          ./3rdparty/bpftool.sh
+        shell: bash
+      #
+      - name: Bring current BTFHub Archive
+        run: |
+          cd btfhub 
           make bring
+        shell: bash
       #
       - name: Compile BTFHub Tool
         run: |
-          cd btfhub
+          cd btfhub 
           make
+        shell: bash
       #
       - name: Fetch and Generate new BTFs (UBUNTU)
         run: |
