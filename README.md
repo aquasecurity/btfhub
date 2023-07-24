@@ -1,83 +1,36 @@
-While [BTFhub main repository](https://github.com/aquasecurity/btfhub/) contains documentation, tooling and examples on how to use the BTF files, the BTF files exist in the [BTFhub-Archive repository](https://github.com/aquasecurity/btfhub-archive/).
+The [main BTFhub repository](https://github.com/aquasecurity/btfhub/) serves as a comprehensive resource, housing documentation, tools, and examples to guide users on how to leverage the BTF files effectively. However, the actual BTF files are stored separately in the [BTFhub-Archive repository](https://github.com/aquasecurity/btfhub-archive/). This separation ensures a clean and organized structure, with each repository focusing on its designated role.
 
 ## What is BTF ?
 
-[BTF](https://nakryiko.com/posts/bpf-portability-and-co-re/#btf) is one of the
-things that make eBPF portable.
+The Extended Berkeley Packet Filter (eBPF) is esteemed for its portability, a primary attribute of which is due to the BPF Type Format (BTF). More details about BTF can be discovered in this [comprehensive guide](https://nakryiko.com/posts/bpf-portability-and-co-re/#btf).
 
-Before [CO-RE](https://nakryiko.com/posts/bpf-portability-and-co-re/) existed,
-eBPF developers [had to
-compile](https://ebpf.io/what-is-ebpf#how-are-ebpf-programs-written) one eBPF
-object per supported kernel. This made eBPF toolkits, such as
-[iovisor/bcc](https://github.com/iovisor/bcc), to rely on runtime compilations.
+Before the advent of [Compile Once-Run Everywhere (CO-RE)](https://nakryiko.com/posts/bpf-portability-and-co-re/), developers working with eBPF had to compile an individual eBPF object for each kernel version they intended to support. This stipulation led toolkits, such as [iovisor/bcc](https://github.com/iovisor/bcc), to depend on runtime compilations to handle different kernel versions.
 
-With [CO-RE](https://nakryiko.com/posts/bpf-portability-and-co-re/), the same
-eBPF object can be loaded into multiple different kernels. The
-[libbpf](https://github.com/libbpf/libbpf)
-[loader](https://ebpf.io/what-is-ebpf#loader--verification-architecture) will
-allow [CO-RE](https://nakryiko.com/posts/bpf-portability-and-co-re/) by
-arranging needed infrastructure for a given eBPF object, such as [eBPF
-maps](https://ebpf.io/what-is-ebpf#maps) creation, code relocation, eBPF
-probes, links and their attachments, etc.
+However, the introduction of [CO-RE](https://nakryiko.com/posts/bpf-portability-and-co-re/) facilitated a significant shift in eBPF portability, allowing a single eBPF object to be loaded into multiple differing kernels. This is achieved by the [libbpf loader](https://github.com/libbpf/libbpf), a component within the eBPF's [loader and verification architecture](https://ebpf.io/what-is-ebpf#loader--verification-architecture). The libbpf loader arranges the necessary infrastructure for an eBPF object, including eBPF map creation, code relocation, setting up eBPF probes, managing links, handling their attachments, among others.
 
-The [eBPF Type Format (BTF)](https://nakryiko.com/posts/btf-dedup/) is a data
-format to store debug information about eBPF objects OR about the kernels they
-will be loaded into.
+Here's the technical insight: both the eBPF object and the target kernel contain BTF information, generally embedded within their respective ELF (Executable and Linkable Format) files. The libbpf loader leverages this embedded BTF information to calculate the requisite changes such as relocations, map creations, probe attachments, and more for an eBPF object. As a result, this eBPF object can be loaded and have its programs executed across any kernel without the need for object modification, thus enhancing portability.
 
-**The idea is this**: Both, the **eBPF object** AND the **target kernel**, have
-BTF information available, usually embedded into their ELF files. The
-[libbpf](https://github.com/libbpf/libbpf) loader uses the embedded BTF
-information to calculate needed changes (relocations, map creations, probe
-attachments, ...) for an eBPF object to be loaded and have its programs
-executed in any kernel, without modifications to the object.
+## BTFHUB
 
-## What is BTFhub ?
+Regrettably, the [BPF Type Format (BTF)](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md#main-features) wasn't always readily available. This can be attributed to either a lack of kernel support or the absence of userland tools capable of interpreting the BTF format. As a result, certain Linux distributions ended up releasing kernels without embedded BTF information.
 
-Unfortunately the
-[BTF](https://github.com/iovisor/bcc/blob/master/docs/kernel-versions.md#main-features)
-format wasn't always available and, because of **missing kernel support**, or
-because of the [lack of userland
-tools](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1949286), capable
-of understanding the BTF format, distributions release(ed) kernels without the
-embedded BTF information.
+This is the precise [reason behind the existence of BTFhub](https://www.youtube.com/watch?v=ZYd0lVRwY80). BTFhub's primary function is to supply BTF information for those Linux kernels that were released by distributions without this information embedded. Instead of requiring you to recompile your eBPF code for each existing Linux kernel that lacks BTF support, your code will be relocated by libbpf based on the available BTF information fetched from BTFhub's files.
 
-That is [why BTFhub exists](https://www.youtube.com/watch?v=ZYd0lVRwY80): to
-provide BTF information for Linux distributions released kernels that don't
-have embedded BTF information. Instead of recompiling your eBPF code to each
-existing Linux kernel that does not support BTF information, your code will be
-relocated - by libbpf - according to available BTF information from the BTFhub
-files.
+The libbpf's support for external (raw) BTF files, [which started with this commit](https://github.com/libbpf/libbpf/commit/4920031c8809696debf43f7b0c8f95ea24b8f61c), enables us to supply libbpf with an external BTF file corresponding to the kernel you intend your eBPF code to run on. It's important to note that each kernel requires its unique BTF file.
 
-After libbpf [started supporting external (raw) BTF
-files](https://github.com/libbpf/libbpf/commit/4920031c8809696debf43f7b0c8f95ea24b8f61c),
-we're able to feed libbpf with this external BTF file for a kernel you want to
-run your eBPF code into. Each kernel needs its own BTF file.
-
-**Note**: You won't need BTFhub if you're willing to support your eBPF CO-RE
-application only in the latest kernels. Now, if you are willing to support ALL
-released kernels, including some Long Term Support Linux distribution versions,
-then you may need to use BTFhub.
+Please note that BTFhub's use is not universally necessary. If your intent is to support your eBPF CO-RE application solely on the most recent kernels, you will not need BTFhub. However, if you aim to support all released kernels, which include versions from some Long Term Support Linux distributions, then BTFhub may prove to be an indispensable resource.
 
 ## Supported Kernels and Distributions
 
-[This is a list](docs/supported-distros.md) of existing distributions and their
-current status on **eBPF** and **BTF** support.
+[This is a list](docs/supported-distros.md) of existing distributions and their current status on **eBPF** and **BTF** support.
 
-## How can I use it ?
+## How to Use
 
-1. [This is a code example](example/) of how you should use BTFhub to add
-   support to legacy kernels to your eBPF project. The uncompressed full BTF
-   files, from the [BTFhub-Archive repository](https://github.com/aquasecurity/btfhub-archive),
-   should feed libbpf used by your eBPF project, just like showed in
-   [this C example](https://github.com/aquasecurity/btfhub/blob/26ec6014bd7340c3894f486db57a1ef0a712a3b0/example/example.c#L189)
-   or [this Go example](https://github.com/aquasecurity/btfhub/blob/26ec6014bd7340c3894f486db57a1ef0a712a3b0/example/example.go#L88).
+[Tracee](https://github.com/aquasecurity/tracee/), a runtime security and tracing tool for Linux, serves as a leading example of effective utilization of BTFhub. Tracee incorporates a [script](https://github.com/aquasecurity/tracee/blob/6076457ebb95432da3104f358cb9a29a1d8416c4/3rdparty/btfhub.sh#L107-L108) that downloads the contents of both the [BTFhub](https://github.com/aquasecurity/btfhub) and [BTFhub Archive](https://github.com/aquasecurity/btfhub-archive) repositories. 
 
-2. You may use the [BTFgen tool to create smaller BTF
-   files](docs/generating-tailored-btfs.md), so you can embed them into your
-   eBPF application and make it support all kernels supported by BTFhub.
+This script then uses the BTFhub scripts to [generate tailored BTF files](docs/generating-tailored-btfs.md) that are exceptionally small in size. The result is a streamlined integration process and an efficient method for handling BTF files, demonstrating the power of BTFhub and its scripts when used effectively.
 
-## Where can I find more information ?
+## More Information
 
 - [How to use Pahole to generate BTF information](https://github.com/aquasecurity/btfhub/blob/main/docs/how-to-use-pahole.md)
-- [BTF Generator Internals](https://github.com/aquasecurity/btfhub/blob/main/docs/btfgen-internals.md)
-- more references to come...
+- [BTFGen added to bpftool, how libbpf does relocations](https://github.com/aquasecurity/btfhub/blob/main/docs/btfgen-internals.md)
