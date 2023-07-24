@@ -1,0 +1,45 @@
+Source: dwarves
+Priority: optional
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Thomas Girard <thomas.g.girard@free.fr>
+Uploaders: Domenico Andreoli <cavok@debian.org>
+Build-Depends: debhelper-compat (= 13), cmake (>= 2.4.8), pkg-config, zlib1g-dev, libelf-dev, libdw-dev (>= 0.141), linux-libc-dev [linux-any]
+Standards-Version: 4.6.1
+Rules-Requires-Root: no
+Section: utils
+Vcs-Browser: https://salsa.debian.org/debian/dwarves
+Vcs-Git: https://salsa.debian.org/debian/dwarves.git
+Homepage: https://git.kernel.org/pub/scm/devel/pahole/pahole.git
+
+Package: pahole
+Architecture: any
+Multi-Arch: foreign
+Replaces: dwarves (<< 1.22)
+Breaks: dwarves (<< 1.22)
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: set of advanced DWARF utilities
+ This package contains tools that use the DWARF debugging information
+ inserted in ELF binaries by the compiler. This information is used by
+ debuggers (e.g. GDB), and other tools such as systemtap.
+ .
+ Utilities in the dwarves suite include:
+ .
+  - pahole: finds alignment holes in structs and classes in languages
+    such as C/C++, CPU cacheline alignment. Helps repack those structures
+    to achieve more cache hits.
+  - codiff: a diff like tool to compare the effects changes in source
+    code generate on the resulting binaries
+  - pfunct: displays all sorts of information about functions, inlines, etc.
+  - pdwtags: pretty-prints DWARF information
+  - pglobal: lists global symbols
+  - prefcnt: counts DWARF tags usage
+  - syscse: system call sign extender
+  - dtagnames: lists tag names
+
+Package: dwarves
+Architecture: all
+Multi-Arch: foreign
+Section: oldlibs
+Depends: pahole (>= 1.22), ${misc:Depends}
+Description: set of advanced DWARF utilities - transitional package
+ This is a "dummy" package that depends on the newly named pahole.

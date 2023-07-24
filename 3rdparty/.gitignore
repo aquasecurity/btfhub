@@ -1,0 +1,9 @@
+# build dirs
+*/debian/*/build
+*/debian/*/tmp
+debian*/build
+debian*/tmp
+# leftovers
+*.deb
+*.changes
+*.buildinfo

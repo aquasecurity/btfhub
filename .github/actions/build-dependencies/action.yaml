@@ -16,6 +16,11 @@ runs:
         sudo apt-get install -y bsdutils build-essential pkgconf
         sudo apt-get install -y zlib1g-dev libelf-dev
         sudo apt-get install -y software-properties-common
+        sudo apt-get install -y devscripts ubuntu-dev-tools
+      shell: bash
+    - name: Install Recent Pahole
+      run: |
+        ./3rdparty/pahole.sh
       shell: bash
     - name: Install Golang
       run: |
