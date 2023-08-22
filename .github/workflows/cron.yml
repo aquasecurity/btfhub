@@ -17,6 +17,14 @@ jobs:
       ]
     steps:
     #
+      - name: Setup Swap File
+        run: |
+          sudo fallocate -l 16G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+        shell: bash
+    #
       - name: Install needed ubuntu packages
         run: |
           export DEBIAN_FRONTEND=noninteractive
@@ -110,28 +118,28 @@ jobs:
       - name: Fetch and Generate new BTFs (UBUNTU)
         run: |
           cd btfhub
-          ./btfhub -workers 12 -d ubuntu
+          ./btfhub -workers 6 -d ubuntu
       # debian stretch seems to be gone, updates for buster and bullseye only
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
           cd btfhub
-          ./btfhub -workers 12 -d debian -r buster
-          ./btfhub -workers 12 -d debian -r bullseye
+          ./btfhub -workers 6 -d debian -r buster
+          ./btfhub -workers 6 -d debian -r bullseye
       #
       - name: Fetch and Generate new BTFs (CENTOS)
         run: |
           cd btfhub
-          ./btfhub -workers 12 -d centos
+          ./btfhub -workers 6 -d centos
       #
       - name: Fetch and Generate new BTFs (FEDORA)
         run: |
           cd btfhub
-          ./btfhub -workers 12 -d fedora
+          ./btfhub -workers 6 -d fedora
       #
       - name: Fetch and Generate new BTFs (ORACLE)
         run: |
           cd btfhub
-          ./btfhub -workers 12 -d ol
+          ./btfhub -workers 6 -d ol
       #
       - name: Take new BTFs to BTFHub Archive
         run: |
