@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout BTFHub Archive
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: aquasecurity/btfhub-archive
           path: archive
@@ -54,7 +54,7 @@ jobs:
 #          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
 
       - name: Check out BTFHub
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 #        with:
 #          token: ${{ secrets.PAT_RAFAEL }}
 
@@ -155,7 +155,7 @@ jobs:
 #          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
       #
       - name: Check out BTFHub
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 #          token: ${{ secrets.PAT_RAFAEL }}
       #
       - name: Install pahole
