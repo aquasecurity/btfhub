@@ -54,6 +54,6 @@ func (pkg *SUSEPackage) Download(ctx context.Context, _ string, force bool) (str
 
 func zypperDownload(ctx context.Context, pkg string) error {
 	stdout, err := utils.RunZypperCMD(ctx, "-q", "install", "-y", "--no-recommends", "--download-only", pkg)
-	_, _ = fmt.Fprintf(os.Stdout, stdout.String())
+	_, _ = fmt.Fprint(os.Stdout, stdout.String())
 	return err
 }
