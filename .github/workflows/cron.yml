@@ -53,18 +53,18 @@ jobs:
 #        run: |
 #          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
 
-      - name: Check out BTFHub
-        uses: actions/checkout@v3
-#        with:
-#          token: ${{ secrets.PAT_RAFAEL }}
-
       - uses: actions/setup-go@v4
         with:
           go-version: '1.20'
 
+      - name: Check out BTFHub
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+#          token: ${{ secrets.PAT_RAFAEL }}
+
       - name: build pahole
         run: |
-          git submodule update --init --recursive 3rdparty/dwarves
           cd ./3rdparty/dwarves
           mkdir build
           cd build
