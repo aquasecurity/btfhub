@@ -40,7 +40,6 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: amazonlinux:2
-      options: --user 1001
       volumes:
         - archive:/root/archive
     steps:
@@ -63,6 +62,9 @@ jobs:
         with:
           submodules: 'recursive'
 #          token: ${{ secrets.PAT_RAFAEL }}
+
+      - run: git config --system --add safe.directory $(pwd)
+        shell: bash
 
       - name: build pahole
         run: |
