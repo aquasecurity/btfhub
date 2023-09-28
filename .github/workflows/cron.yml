@@ -13,8 +13,8 @@ jobs:
     steps:
       - name: Install needed amazon packages
         run: |
-          yum install yum-utils tar gzip xz clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel
-          yum-config-manager --enable amzn2-core-debuginfo
+          yum install -y yum-utils tar gzip xz clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel
+          yum-config-manager -y --enable amzn2-core-debuginfo
         shell: bash
 
 #      - name: Authenticate
