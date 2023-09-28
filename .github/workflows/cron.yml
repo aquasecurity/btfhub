@@ -7,10 +7,7 @@ on:
 jobs:
   amazon-build:
     name: Update Amazon 2 BTF Archive
-    runs-on:
-      [
-        "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
-      ]
+    runs-on: ubuntu-latest
     container:
       image: amazonlinux:2
     steps:
@@ -87,10 +84,7 @@ jobs:
       GOPATH: "/tmp/go"
       GOCACHE: "/tmp/go-cache"
       GOROOT: "/usr/local/go"
-    runs-on:
-      [
-        "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
-      ]
+    runs-on: ubuntu-latest
     steps:
     #
       - name: Setup Swap File
