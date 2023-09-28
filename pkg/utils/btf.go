@@ -5,6 +5,7 @@ import (
 	"context"
 	"debug/elf"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -33,4 +34,11 @@ func RunCMD(ctx context.Context, cwd string, binary string, args ...string) erro
 	}
 
 	return nil
+}
+
+func SudoCMD(binary string, args ...string) (string, []string) {
+	if os.Getuid() != 0 {
+		return "sudo", append([]string{binary}, args...)
+	}
+	return binary, args
 }

@@ -45,7 +45,8 @@ func (d *RHELRepo) GetKernelPackages(
 ) error {
 	altArch := d.archs[arch]
 	rver := d.releaseVersions[release+":"+altArch]
-	if err := utils.RunCMD(ctx, "", "sudo", "subscription-manager", "release", fmt.Sprintf("--set=%s", rver)); err != nil {
+	binary, args := utils.SudoCMD("subscription-manager", "release", fmt.Sprintf("--set=%s", rver))
+	if err := utils.RunCMD(ctx, "", binary, args...); err != nil {
 		return err
 	}
 

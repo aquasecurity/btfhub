@@ -12,11 +12,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/kernel"
 	"github.com/aquasecurity/btfhub/pkg/pkg"
 	"github.com/aquasecurity/btfhub/pkg/utils"
-	"golang.org/x/exp/maps"
 )
 
 func parseYumPackages(rdr io.Reader, minVersion kernel.Version) ([]pkg.Package, error) {
@@ -62,7 +63,8 @@ func parseYumPackages(rdr io.Reader, minVersion kernel.Version) ([]pkg.Package, 
 func yumSearch(ctx context.Context, pkg string) (*bytes.Buffer, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	cmd := exec.CommandContext(ctx, "sudo", "yum", "search", "--showduplicates", pkg)
+	binary, args := utils.SudoCMD("yum", "search", "--showduplicates", pkg)
+	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
