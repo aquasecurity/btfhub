@@ -1,5 +1,6 @@
 name: Update BTFHub Archive
 on:
+  push:
   schedule:
     - cron: "0 1 * * *"
   workflow_dispatch: {}
@@ -28,14 +29,14 @@ jobs:
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
-          token: ${{ secrets.PAT_RAFAEL }}
+#          token: ${{ secrets.PAT_RAFAEL }}
 
       - name: Checkout BTFHub Archive
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub-archive
           path: ./btfhub/archive
-          token: ${{ secrets.PAT_RAFAEL }}
+#          token: ${{ secrets.PAT_RAFAEL }}
 
       - uses: actions/setup-go@v4
         with:
@@ -148,23 +149,23 @@ jobs:
             --slave /usr/bin/cc cc /usr/bin/clang-14
         shell: bash
      #
-      - name: Authenticate
-        run: |
-          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
+#      - name: Authenticate
+#        run: |
+#          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
-          token: ${{ secrets.PAT_RAFAEL }}
+#          token: ${{ secrets.PAT_RAFAEL }}
       # Authenticate
       - name: Checkout BTFHub Archive
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub-archive
           path: ./btfhub-archive
-          token: ${{ secrets.PAT_RAFAEL }}
+#          token: ${{ secrets.PAT_RAFAEL }}
       #
       - name: Install pahole
         run: |
@@ -226,11 +227,11 @@ jobs:
           cd btfhub-archive
           git status
       #
-      - name: Commit and Push to BTFHub Archive
-        run: |
-          cd btfhub-archive
-          git config --local user.name "Rafael David Tinoco"
-          git config --local user.email "rafaeldtinoco@gmail.com"
-          git add -A
-          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
-          git push
+#      - name: Commit and Push to BTFHub Archive
+#        run: |
+#          cd btfhub-archive
+#          git config --local user.name "Rafael David Tinoco"
+#          git config --local user.email "rafaeldtinoco@gmail.com"
+#          git add -A
+#          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
+#          git push
