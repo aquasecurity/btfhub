@@ -31,9 +31,8 @@ func yumDownload(ctx context.Context, pkg string, destdir string) error {
 
 	destDirParam := fmt.Sprintf("--downloaddir=%s", destdir)
 
-	cmd := exec.CommandContext(ctx,
-		"sudo", "yum", "install", "-y", "--downloadonly", destDirParam, pkg,
-	)
+	binary, args := utils.SudoCMD("yum", "install", "-y", "--downloadonly", destDirParam, pkg)
+	cmd := exec.CommandContext(ctx, binary, args...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = stderr
