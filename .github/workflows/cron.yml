@@ -5,11 +5,43 @@ on:
     - cron: "0 1 * * *"
   workflow_dispatch: {}
 jobs:
-  amazon-build:
+  archive-checkout:
+    name: Checkout BTFHub Archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout BTFHub Archive
+        uses: actions/checkout@v3
+        with:
+          repository: aquasecurity/btfhub-archive
+          path: archive
+  #          token: ${{ secrets.PAT_RAFAEL }}
+
+  commit-changes:
+    name: Commit archive changes
+    needs: [amazon-update, host-update]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Status
+        run: |
+          cd archive
+          git status
+#      - name: Commit and Push to BTFHub Archive
+#        run: |
+#          cd archive
+#          git config --local user.name "Rafael David Tinoco"
+#          git config --local user.email "rafaeldtinoco@gmail.com"
+#          git add -A
+#          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
+#          git push
+
+  amazon-update:
     name: Update Amazon 2 BTF Archive
+    needs: archive-checkout
     runs-on: ubuntu-latest
     container:
       image: amazonlinux:2
+      volumes:
+        - archive:/root/archive
     steps:
       - name: Install needed amazon packages
         run: |
@@ -23,15 +55,7 @@ jobs:
 
       - name: Check out BTFHub
         uses: actions/checkout@v3
-        with:
-          path: ./btfhub
-#          token: ${{ secrets.PAT_RAFAEL }}
-
-      - name: Checkout BTFHub Archive
-        uses: actions/checkout@v3
-        with:
-          repository: aquasecurity/btfhub-archive
-          path: ./btfhub/archive
+#        with:
 #          token: ${{ secrets.PAT_RAFAEL }}
 
       - uses: actions/setup-go@v4
@@ -40,7 +64,6 @@ jobs:
 
       - name: build pahole
         run: |
-          cd btfhub
           git submodule update --init --recursive 3rdparty/dwarves
           cd ./3rdparty/dwarves
           mkdir build
@@ -53,31 +76,16 @@ jobs:
 
       - name: Compile BTFHub Tool
         run: |
-          cd btfhub 
           make
         shell: bash
 
       - name: Fetch and Generate new BTFs (AMAZON 2)
         run: |
-          cd btfhub
           ./btfhub -workers 6 -d amzn -r 2
 
-      - name: Check Status
-        run: |
-          cd btfhub/archive
-          git status
-
-#      - name: Commit and Push to BTFHub Archive
-#        run: |
-#          cd btfhub/archive
-#          git config --local user.name "Rafael David Tinoco"
-#          git config --local user.email "rafaeldtinoco@gmail.com"
-#          git add -A
-#          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
-#          git push
-
-  build:
+  host-update:
     name: Update BTF Archive
+    needs: archive-checkout
     env:
       HOME: "/tmp/root"
       GOPATH: "/tmp/go"
@@ -148,82 +156,35 @@ jobs:
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
-        with:
-          path: ./btfhub
-#          token: ${{ secrets.PAT_RAFAEL }}
-      # Authenticate
-      - name: Checkout BTFHub Archive
-        uses: actions/checkout@v3
-        with:
-          repository: aquasecurity/btfhub-archive
-          path: ./btfhub-archive
 #          token: ${{ secrets.PAT_RAFAEL }}
       #
       - name: Install pahole
         run: |
-          cd btfhub 
           ./3rdparty/pahole.sh
-        shell: bash
-      #
-      - name: Install bpftool
-        run: |
-          cd btfhub
-          ./3rdparty/bpftool.sh
-        shell: bash
-      #
-      - name: Bring current BTFHub Archive
-        run: |
-          cd btfhub 
-          make bring
         shell: bash
       #
       - name: Compile BTFHub Tool
         run: |
-          cd btfhub 
           make
         shell: bash
       #
       - name: Fetch and Generate new BTFs (UBUNTU)
         run: |
-          cd btfhub
           ./btfhub -workers 6 -d ubuntu
       # debian stretch seems to be gone, updates for buster and bullseye only
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
-          cd btfhub
           ./btfhub -workers 6 -d debian -r buster
           ./btfhub -workers 6 -d debian -r bullseye
       #
       - name: Fetch and Generate new BTFs (CENTOS)
         run: |
-          cd btfhub
           ./btfhub -workers 6 -d centos
       #
       - name: Fetch and Generate new BTFs (FEDORA)
         run: |
-          cd btfhub
           ./btfhub -workers 6 -d fedora
       #
       - name: Fetch and Generate new BTFs (ORACLE)
         run: |
-          cd btfhub
           ./btfhub -workers 6 -d ol
-      #
-      - name: Take new BTFs to BTFHub Archive
-        run: |
-          cd btfhub
-          make take
-      #
-      - name: Check Status
-        run: |
-          cd btfhub-archive
-          git status
-      #
-#      - name: Commit and Push to BTFHub Archive
-#        run: |
-#          cd btfhub-archive
-#          git config --local user.name "Rafael David Tinoco"
-#          git config --local user.email "rafaeldtinoco@gmail.com"
-#          git add -A
-#          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
-#          git push
