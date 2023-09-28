@@ -54,7 +54,7 @@ jobs:
 #          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
 
       - name: Check out BTFHub
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 #        with:
 #          token: ${{ secrets.PAT_RAFAEL }}
 
