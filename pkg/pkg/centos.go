@@ -22,6 +22,10 @@ func (pkg *CentOSPackage) Filename() string {
 	return pkg.NameOfFile
 }
 
+func (pkg *CentOSPackage) BTFFilename() string {
+	return pkg.NameOfFile
+}
+
 func (pkg *CentOSPackage) Version() kernel.Version {
 	return pkg.KernelVersion
 }

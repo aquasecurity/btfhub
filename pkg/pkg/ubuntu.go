@@ -38,6 +38,10 @@ func (pkg *UbuntuPackage) Filename() string {
 	return pkg.NameOfFile
 }
 
+func (pkg *UbuntuPackage) BTFFilename() string {
+	return pkg.NameOfFile
+}
+
 func (pkg *UbuntuPackage) Version() kernel.Version {
 	return pkg.KernelVersion
 }

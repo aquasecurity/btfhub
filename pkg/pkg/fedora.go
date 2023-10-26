@@ -22,6 +22,10 @@ func (pkg *FedoraPackage) Filename() string {
 	return pkg.NameOfFile
 }
 
+func (pkg *FedoraPackage) BTFFilename() string {
+	return pkg.NameOfFile
+}
+
 func (pkg *FedoraPackage) Version() kernel.Version {
 	return pkg.KernelVersion
 }

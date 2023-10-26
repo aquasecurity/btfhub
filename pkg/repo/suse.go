@@ -178,9 +178,14 @@ func (d *suseRepo) parseZypperPackages(rdr io.Reader, arch string) ([]*pkg.SUSEP
 				continue
 			}
 
+			// remove final .x because it is just a build counter and not included in `uname -r`
+			parts := strings.Split(ver, ".")
+			btfver := strings.Join(parts[:len(parts)-1], ".")
+
 			p := &pkg.SUSEPackage{
 				Name:          name,
-				NameOfFile:    fmt.Sprintf("%s-%s", ver, match[1]),
+				NameOfFile:    fmt.Sprintf("%s-%s", ver, flavor),
+				NameOfBTFFile: fmt.Sprintf("%s-%s", btfver, flavor),
 				KernelVersion: kernel.NewKernelVersion(ver),
 				Architecture:  pkgarch,
 				Repo:          repo,
