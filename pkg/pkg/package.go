@@ -13,23 +13,24 @@ import (
 type Package interface {
 	String() string
 	Filename() string
+	BTFFilename() string
 	Version() kernel.Version
 	Download(ctx context.Context, dir string, force bool) (string, error)
 	ExtractKernel(ctx context.Context, pkgpath string, vmlinuxPath string) error
 }
 
 func PackageBTFExists(p Package, workDir string) bool {
-	fp := filepath.Join(workDir, fmt.Sprintf("%s.btf.tar.xz", p.Filename()))
+	fp := filepath.Join(workDir, fmt.Sprintf("%s.btf.tar.xz", p.BTFFilename()))
 	return utils.Exists(fp)
 }
 
 func PackageFailed(p Package, workDir string) bool {
-	fp := filepath.Join(workDir, fmt.Sprintf("%s.failed", p.Filename()))
+	fp := filepath.Join(workDir, fmt.Sprintf("%s.failed", p.BTFFilename()))
 	return utils.Exists(fp)
 }
 
 func hasBTFPath(p Package, workDir string) string {
-	return filepath.Join(workDir, fmt.Sprintf("%s.hasbtf", p.Filename()))
+	return filepath.Join(workDir, fmt.Sprintf("%s.hasbtf", p.BTFFilename()))
 }
 
 func MarkPackageHasBTF(p Package, workDir string) error {

@@ -83,9 +83,9 @@ func processPackage(
 	jobChan chan<- job.Job,
 ) error {
 
-	btfName := fmt.Sprintf("%s.btf", p.Filename())
+	btfName := fmt.Sprintf("%s.btf", p.BTFFilename())
 	btfPath := filepath.Join(workDir, btfName)
-	btfTarName := fmt.Sprintf("%s.btf.tar.xz", p.Filename())
+	btfTarName := fmt.Sprintf("%s.btf.tar.xz", p.BTFFilename())
 	btfTarPath := filepath.Join(workDir, btfTarName)
 
 	if pkg.PackageHasBTF(p, workDir) {

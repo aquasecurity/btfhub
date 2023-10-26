@@ -22,6 +22,10 @@ func (pkg *RHELPackage) Filename() string {
 	return pkg.NameOfFile
 }
 
+func (pkg *RHELPackage) BTFFilename() string {
+	return pkg.NameOfFile
+}
+
 func (pkg *RHELPackage) Version() kernel.Version {
 	return pkg.KernelVersion
 }

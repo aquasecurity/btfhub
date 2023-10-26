@@ -13,6 +13,7 @@ import (
 type SUSEPackage struct {
 	Name          string
 	NameOfFile    string
+	NameOfBTFFile string
 	Architecture  string
 	KernelVersion kernel.Version
 	Repo          string
@@ -22,6 +23,10 @@ type SUSEPackage struct {
 
 func (pkg *SUSEPackage) Filename() string {
 	return pkg.NameOfFile
+}
+
+func (pkg *SUSEPackage) BTFFilename() string {
+	return pkg.NameOfBTFFile
 }
 
 func (pkg *SUSEPackage) Version() kernel.Version {
