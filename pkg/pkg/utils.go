@@ -18,7 +18,17 @@ import (
 
 func TarballBTF(ctx context.Context, btf string, out string) error {
 	// Use external tool for performance reasons
-	return utils.RunCMD(ctx, filepath.Dir(btf), "tar", "cvfJ", out, filepath.Base(btf))
+	return utils.RunCMD(ctx, filepath.Dir(btf), "tar",
+		"-cvJ",
+		"--sort=name",
+		"--owner=root:0",
+		"--group=root:0",
+		"--mode=a=r",
+		"--mtime=@0",
+		"-f",
+		out,
+		filepath.Base(btf),
+	)
 }
 
 //
