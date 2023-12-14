@@ -42,7 +42,11 @@ fi
 
 cd ${basedir}
 
-btfgen=/usr/sbin/bpftool
+btfgen=$(which bpftool)
+if [ -z "${btfgen}" ]; then
+    btfgen=/usr/sbin/bpftool
+fi
+
 if [ ! -x "${btfgen}" ]; then
     echo "error: could not find bpftool (w/ btfgen patch) tool"
     exit 1
