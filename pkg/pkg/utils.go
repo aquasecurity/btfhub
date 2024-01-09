@@ -35,15 +35,10 @@ func TarballBTF(ctx context.Context, btf string, out string) error {
 // RHEL packages
 //
 
-func yumDownload(ctx context.Context, pkg string, destdir string) error {
-
+func yumDownload(ctx context.Context, pkg string, arch string, destdir string) error {
 	stderr := &bytes.Buffer{}
-
-	destDirParam := fmt.Sprintf("--downloaddir=%s", destdir)
-
-	binary, args := utils.SudoCMD("yum", "install", "-y", "--downloadonly", destDirParam, pkg)
+	binary, args := utils.SudoCMD("yumdownloader", "--archlist="+arch, "--destdir="+destdir, pkg)
 	cmd := exec.CommandContext(ctx, binary, args...)
-
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = stderr
 

@@ -1,8 +1,7 @@
 # binary
 btfhub
-# arvhices
-archive/*
-custom-archive/*
+# archives
+archive/
 # makefile leftovers
 .check*
 # JetBrains

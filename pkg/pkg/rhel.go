@@ -47,7 +47,7 @@ func (pkg *RHELPackage) Download(ctx context.Context, dir string, force bool) (s
 		return rpmpath, nil
 	}
 
-	err := yumDownload(ctx, pkg.Name, dir)
+	err := yumDownload(ctx, pkg.Name, pkg.Architecture, dir)
 	if err != nil {
 		os.Remove(rpmpath)
 		return "", fmt.Errorf("rpm download: %s", err)
