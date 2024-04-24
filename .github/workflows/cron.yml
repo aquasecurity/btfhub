@@ -16,7 +16,7 @@ jobs:
         "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
       ]
     steps:
-    #
+      #
       - name: Setup Swap File
         run: |
           sudo fallocate -l 16G /swapfile
@@ -24,7 +24,7 @@ jobs:
           sudo mkswap /swapfile
           sudo swapon /swapfile
         shell: bash
-    #
+      #
       - name: Install needed ubuntu packages
         run: |
           export DEBIAN_FRONTEND=noninteractive
@@ -35,7 +35,7 @@ jobs:
           sudo apt-get install -y software-properties-common
           sudo apt-get install -y devscripts ubuntu-dev-tools
         shell: bash
-    #
+      #
       - name: Update alternatives for LLVM
         run: |
           export DEBIAN_FRONTEND=noninteractive
@@ -72,28 +72,25 @@ jobs:
             --slave /usr/bin/opt opt /usr/bin/opt-14 \
             --slave /usr/bin/cc cc /usr/bin/clang-14
         shell: bash
-     #
-      - name: Authenticate
-        run: |
-          gh auth login --with-token <<<'${{ secrets.PAT_RAFAEL }}'
       #
       - name: Check out BTFHub
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
-          token: ${{ secrets.PAT_RAFAEL }}
-      # Authenticate
+      #
       - name: Checkout BTFHub Archive
         uses: actions/checkout@v3
         with:
           repository: aquasecurity/btfhub-archive
+          token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
+          persist-credentials: false
+          fetch-depth: 1
           path: ./btfhub-archive
-          token: ${{ secrets.PAT_RAFAEL }}
       #
       - name: Install pahole
         run: |
-          cd btfhub 
+          cd btfhub
           ./3rdparty/pahole.sh
         shell: bash
       #
@@ -105,13 +102,13 @@ jobs:
       #
       - name: Bring current BTFHub Archive
         run: |
-          cd btfhub 
+          cd btfhub
           make bring
         shell: bash
       #
       - name: Compile BTFHub Tool
         run: |
-          cd btfhub 
+          cd btfhub
           make
         shell: bash
       #
@@ -152,10 +149,9 @@ jobs:
           git status
       #
       - name: Commit and Push to BTFHub Archive
-        run: |
-          cd btfhub-archive
-          git config --local user.name "Rafael David Tinoco"
-          git config --local user.email "rafaeldtinoco@gmail.com"
-          git add -A
-          git diff-index --quiet HEAD || git commit -m "Update BTFHUB Archive from BTFHUB"
-          git push
+        uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
+        with:
+          directory: ./btfhub-archive
+          github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
+          message: 'Update BTFHUB Archive from BTFHUB'
+          branch: main
