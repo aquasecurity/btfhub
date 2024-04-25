@@ -18,43 +18,43 @@ jobs:
       #
       - name: Setup Swap File
         run: |
-          sudo fallocate -l 16G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          fallocate -l 16G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
         shell: bash
       #
       - name: Install needed ubuntu packages
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          sudo dpkg --purge unattended-upgrades
-          sudo apt-get update
-          sudo apt-get install -y bsdutils build-essential pkgconf
-          sudo apt-get install -y zlib1g-dev libelf-dev
-          sudo apt-get install -y software-properties-common
-          sudo apt-get install -y devscripts ubuntu-dev-tools
+          dpkg --purge unattended-upgrades
+          apt-get update
+          apt-get install -y bsdutils build-essential pkgconf
+          apt-get install -y zlib1g-dev libelf-dev
+          apt-get install -y software-properties-common
+          apt-get install -y devscripts ubuntu-dev-tools
         shell: bash
       #
       - name: Update alternatives for LLVM
         run: |
           export DEBIAN_FRONTEND=noninteractive
-          sudo update-alternatives --remove-all cc || true
-          sudo update-alternatives --remove-all clang || true
-          sudo update-alternatives --remove-all clang++ || true
-          sudo update-alternatives --remove-all llc || true
-          sudo update-alternatives --remove-all lld || true
-          sudo update-alternatives --remove-all clangd || true
-          sudo update-alternatives --remove-all clang-format || true
-          sudo update-alternatives --remove-all llvm-strip || true
-          sudo update-alternatives --remove-all llvm-config || true
-          sudo update-alternatives --remove-all ld.lld || true
-          sudo update-alternatives --remove-all llvm-ar || true
-          sudo update-alternatives --remove-all llvm-nm || true
-          sudo update-alternatives --remove-all llvm-objcopy || true
-          sudo update-alternatives --remove-all llvm-objdump || true
-          sudo update-alternatives --remove-all llvm-readelf || true
-          sudo update-alternatives --remove-all opt || true
-          sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 140 \
+          update-alternatives --remove-all cc || true
+          update-alternatives --remove-all clang || true
+          update-alternatives --remove-all clang++ || true
+          update-alternatives --remove-all llc || true
+          update-alternatives --remove-all lld || true
+          update-alternatives --remove-all clangd || true
+          update-alternatives --remove-all clang-format || true
+          update-alternatives --remove-all llvm-strip || true
+          update-alternatives --remove-all llvm-config || true
+          update-alternatives --remove-all ld.lld || true
+          update-alternatives --remove-all llvm-ar || true
+          update-alternatives --remove-all llvm-nm || true
+          update-alternatives --remove-all llvm-objcopy || true
+          update-alternatives --remove-all llvm-objdump || true
+          update-alternatives --remove-all llvm-readelf || true
+          update-alternatives --remove-all opt || true
+          update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 140 \
             --slave /usr/bin/clang++ clang++ /usr/bin/clang++-14 \
             --slave /usr/bin/clangd clangd /usr/bin/clangd-14 \
             --slave /usr/bin/clang-format clang-format /usr/bin/clang-format-14 \
