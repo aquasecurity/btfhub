@@ -73,13 +73,13 @@ jobs:
         shell: bash
       #
       - name: Check out BTFHub
-        uses: actions/checkout@v3
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
       #
       - name: Checkout BTFHub Archive
-        uses: actions/checkout@v3
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: aquasecurity/btfhub-archive
           token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
