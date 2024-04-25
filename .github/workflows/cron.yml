@@ -12,9 +12,8 @@ jobs:
       GOCACHE: "/tmp/go-cache"
       GOROOT: "/usr/local/go"
     runs-on:
-      [
-        "github-self-hosted_ami-0f4881c8d69684001_${{ github.event.number }}-${{ github.run_id }}",
-      ]
+      - graas_ami-0f4881c8d69684001_${{ github.event.number }}${{ github.run_attempt }}-${{ github.run_id }}
+      - EXECUTION_TYPE=LONG
     steps:
       #
       - name: Setup Swap File
