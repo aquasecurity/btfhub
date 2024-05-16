@@ -151,6 +151,9 @@ jobs:
         uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
         with:
           directory: ./btfhub-archive
+          author_email: 'geyslan@gmail.com'
+          author_name: 'Geyslan Gregório'
           github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
           message: 'Update BTFHUB Archive from BTFHUB'
+          repository: aquasecurity/btfhub-archive
           branch: main
