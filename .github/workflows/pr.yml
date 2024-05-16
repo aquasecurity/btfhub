@@ -23,19 +23,35 @@ concurrency:
   group: ${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
-  #
-  # CODE VERIFICATION
-  #
-  verify-analyze-code:
-    name: Verify and Analyze Code
+  verify-and-test:
+    name: Verify and Test
     runs-on: ubuntu-latest
     steps:
+      #
       - name: Checkout Code
-        uses: actions/checkout@v2
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           submodules: true
+      #
       - name: Install Dependencies
         uses: ./.github/actions/build-dependencies
+        with:
+          from: pr
+      #
+      # CODE VERIFICATION
+      #
+      - name: Install staticchecker
+        run: |
+          GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@a093f7c2d3d45d5104fb3414ae939a98be37be02 # v0.4.7
+          sudo cp $HOME/go/bin/staticcheck /usr/bin/
+        shell: bash
+      #
+      - name: Install goimports-reviser
+        run: |
+          go install github.com/incu6us/goimports-reviser/v3@38044e6cb02749195e5384d9d9535ed00a10fc1f # v3.6.4
+          sudo cp $HOME/go/bin/goimports-reviser /usr/bin/
+        shell: bash
+      #
       - name: Lint
         run: |
           if test -z "$(gofmt -l .)"; then
@@ -45,27 +61,17 @@ jobs:
             gofmt -s -d .
             exit 1
           fi
+      #
       - name: Check Golang Vet
         run: |
           make check-vet
+      #
       - name: Check with StaticCheck
         run: |
           make check-staticcheck
-  #
-  # CODE TESTS
-  #
-  unit-tests:
-    name: Unit Tests
-    needs:
-      - verify-analyze-code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-        with:
-          submodules: true
-      - name: Install Dependencies
-        uses: ./.github/actions/build-dependencies
+      #
+      # CODE TESTING
+      #
       - name: Run Unit Tests
         run: |
           make test-unit
