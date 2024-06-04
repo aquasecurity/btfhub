@@ -4,6 +4,116 @@ on:
     - cron: "0 1 * * *"
   workflow_dispatch: {}
 jobs:
+  amazon-update:
+    name: Update Amazon 2 BTF Archive
+    runs-on: ubuntu-latest
+    container:
+      image: amazonlinux:2023
+    steps:
+      - name: Install needed amazon packages
+        run: |
+          yum install -y yum-utils tar gzip xz golang clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel rsync
+        shell: bash
+      #
+      - name: Setup Amazon Debuginfo Repositories
+        run: |
+          # disable default debuginfo repositories
+          yum-config-manager -y --disable amazonlinux-debuginfo
+
+          # add Amazon Linux 2 debuginfo repositories
+          append_repo() {
+            local arch=$1
+            local repo_name="amzn2-core-debuginfo-$arch"
+            
+            echo "[$repo_name]
+          name=Amazon Linux 2 core repository - debuginfo packages $arch
+          mirrorlist=http://amazonlinux.default.amazonaws.com/2/core/latest/debuginfo/$arch/mirror.list
+          enabled=1
+          "
+          }
+
+          cat << EOF >> /etc/yum.repos.d/amazonlinux.repo
+          $(append_repo "x86_64")
+          $(append_repo "aarch64")
+          EOF
+        shell: bash
+      #
+      - name: Checkout BTFHub
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: aquasecurity/btfhub
+          submodules: recursive
+          path: ./btfhub
+      #
+      - name: Build and install pahole
+        run: |
+          cd btfhub/3rdparty/dwarves
+          mkdir build
+          cd build
+          cmake -D__LIB=lib -DDWARF_INCLUDE_DIR=/usr/include ..
+          make install
+          echo "/usr/local/lib" >> /etc/ld.so.conf.d/pahole.conf
+          ldconfig
+        shell: bash
+      #
+      - name: Build and install bpftool
+        run: |
+          cd btfhub/3rdparty/bpftool
+          make -C src clean
+          CC=clang make -C src all
+          cp ./src/bpftool /usr/sbin/bpftool
+          make -C src clean
+        shell: bash
+      #
+      - name: Compile BTFHub Tool
+        run: |
+          cd btfhub
+          make
+        shell: bash
+      #
+      - name: Checkout BTFHub Archive
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          repository: aquasecurity/btfhub-archive
+          token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
+          persist-credentials: false
+          fetch-depth: 1
+          path: ./btfhub-archive
+          sparse-checkout: |
+            amzn
+      #
+      - name: Bring current BTFHub Archive
+        run: |
+          cd btfhub
+          make bring
+        shell: bash
+      #
+      - name: Fetch and Generate new BTFs (AMAZON 2)
+        run: |
+          cd btfhub
+          ./btfhub -workers 6 -d amzn -r 2
+      #
+      - name: Take new BTFs to BTFHub Archive
+        run: |
+          cd btfhub
+          make take
+      #
+      - name: Check Status
+        run: |
+          cd btfhub-archive
+          git status
+      #
+      - name: Commit and Push to BTFHub Archive
+        uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
+        with:
+          directory: ./btfhub-archive
+          author_email: 'geyslan@gmail.com'
+          author_name: 'Geyslan Gregório'
+          github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
+          message: 'Update BTFHUB Archive from BTFHUB'
+          repository: aquasecurity/btfhub-archive
+          branch: main
+
   build:
     name: Update BTF Archive
     env:
@@ -24,7 +134,7 @@ jobs:
           swapon /swapfile
         shell: bash
       #
-      - name: Check out BTFHub
+      - name: Checkout BTFHub
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: aquasecurity/btfhub
@@ -44,6 +154,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
           path: ./btfhub-archive
+          sparse-checkout: |
+            centos
+            debian
+            fedora
+            ol
+            ubuntu
+      #
       - name: Bring current BTFHub Archive
         run: |
           cd btfhub
@@ -56,21 +173,16 @@ jobs:
           make
         shell: bash
       #
-      - name: Fetch and Generate new BTFs (UBUNTU)
+      - name: Fetch and Generate new BTFs (CENTOS)
         run: |
           cd btfhub
-          ./btfhub -workers 6 -d ubuntu
+          ./btfhub -workers 6 -d centos
       # debian stretch seems to be gone, updates for buster and bullseye only
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
           cd btfhub
           ./btfhub -workers 6 -d debian -r buster
           ./btfhub -workers 6 -d debian -r bullseye
-      #
-      - name: Fetch and Generate new BTFs (CENTOS)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d centos
       #
       - name: Fetch and Generate new BTFs (FEDORA)
         run: |
@@ -81,6 +193,11 @@ jobs:
         run: |
           cd btfhub
           ./btfhub -workers 6 -d ol
+      #
+      - name: Fetch and Generate new BTFs (UBUNTU)
+        run: |
+          cd btfhub
+          ./btfhub -workers 6 -d ubuntu
       #
       - name: Take new BTFs to BTFHub Archive
         run: |
