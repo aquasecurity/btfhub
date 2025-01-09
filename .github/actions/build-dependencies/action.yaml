@@ -26,8 +26,8 @@ runs:
       shell: bash
       working-directory: ${{ inputs.run-on }}
     #
-    - name: Install bpftool
-      run: |
-        ./3rdparty/bpftool.sh
-      shell: bash
-      working-directory: ${{ inputs.run-on }}
+    # - name: Install bpftool
+    #   run: |
+    #     ./3rdparty/bpftool.sh
+    #   shell: bash
+    #   working-directory: ${{ inputs.run-on }}

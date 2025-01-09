@@ -56,14 +56,14 @@ jobs:
           ldconfig
         shell: bash
       #
-      - name: Build and install bpftool
-        run: |
-          cd btfhub/3rdparty/bpftool
-          make -C src clean
-          CC=clang make -C src all
-          cp ./src/bpftool /usr/sbin/bpftool
-          make -C src clean
-        shell: bash
+      # - name: Build and install bpftool
+      #   run: |
+      #     cd btfhub/3rdparty/bpftool
+      #     make -C src clean
+      #     CC=clang make -C src all
+      #     cp ./src/bpftool /usr/sbin/bpftool
+      #     make -C src clean
+      #   shell: bash
       #
       - name: Compile BTFHub Tool
         run: |
