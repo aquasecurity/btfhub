@@ -3,7 +3,7 @@ module github.com/aquasecurity/btfhub
 go 1.19
 
 require (
-	github.com/DataDog/zstd v1.5.6
+	github.com/DataDog/zstd v1.5.7
 	github.com/cavaliergopher/cpio v1.0.1
 	github.com/cavaliergopher/rpm v1.2.0
 	github.com/therootcompany/xz v1.0.1
