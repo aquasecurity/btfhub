@@ -334,7 +334,7 @@ apt-get install -y \
 
 # Install dependencies based on the origin
 
-GO_VERSION="1.22.2"
+GO_VERSION="1.24.2"
 LLVM_VERSION="14.0.6"
 
 if [[ $FROM == pr ]]; then

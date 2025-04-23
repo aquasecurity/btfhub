@@ -42,7 +42,7 @@ jobs:
       #
       - name: Install staticchecker
         run: |
-          GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@a093f7c2d3d45d5104fb3414ae939a98be37be02 # v0.4.7
+          GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@5af2e5fc3b08ba46027eb48ebddeba34dc0bd02c # 2025.1
           sudo cp $HOME/go/bin/staticcheck /usr/bin/
         shell: bash
       #

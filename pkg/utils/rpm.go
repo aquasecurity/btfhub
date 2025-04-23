@@ -108,5 +108,5 @@ func ExtractVmlinuxFromRPM(ctx context.Context, rpmPath string, vmlinuxPath stri
 			return nil
 		}
 	}
-	return fmt.Errorf("vmlinux file not found in rpm")
+	return errors.New("vmlinux file not found in rpm")
 }
