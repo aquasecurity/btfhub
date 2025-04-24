@@ -337,9 +337,10 @@ apt-get install -y \
 GO_VERSION="1.24.2"
 LLVM_VERSION="14.0.6"
 
+install_golang_from_github "$GO_VERSION"
+
 if [[ $FROM == pr ]]; then
     # pr dependencies
-    install_golang_from_github "$GO_VERSION"
     install_llvm_os_packages "$LLVM_VERSION"
 elif [[ $FROM == cron ]]; then
     # cron dependencies
