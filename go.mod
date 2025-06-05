@@ -10,7 +10,7 @@ require (
 	github.com/cavaliergopher/rpm v1.3.0
 	github.com/therootcompany/xz v1.0.1
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.15.0
 	pault.ag/go/debian v0.18.0
 )
 
