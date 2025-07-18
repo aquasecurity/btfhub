@@ -177,11 +177,11 @@ jobs:
         run: |
           cd btfhub
           ./btfhub -workers 6 -d centos
-      # debian stretch seems to be gone, updates for buster and bullseye only
+      # public debian stretch and buster are gone, updates for bullseye only
+      # https://en.wikipedia.org/wiki/Debian_version_history#Release_table
       - name: Fetch and Generate new BTFs (DEBIAN)
         run: |
           cd btfhub
-          ./btfhub -workers 6 -d debian -r buster
           ./btfhub -workers 6 -d debian -r bullseye
       #
       - name: Fetch and Generate new BTFs (FEDORA)
