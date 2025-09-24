@@ -81,6 +81,6 @@ for dir in $(find ./archive/ -iregex ".*${a}.*" -type d | sed 's:\.\/archive\/::
 
         # generate one output BTF file to each input BTF file given
         $btfgen gen min_core_btf ${extracted} ${out_dir}/${extracted} ${obj_cmdline}
-        [[ $ret -eq 0 ]] && [[ -f ./${extracted} ]] && rm ./${extracted}
+        [[ $ret -eq 0 ]] && [[ -f ./${extracted} ]] && rm -f ./${extracted}
     done
 done
