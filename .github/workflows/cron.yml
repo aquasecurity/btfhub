@@ -123,9 +123,9 @@ jobs:
       GOPATH: "/tmp/go"
       GOCACHE: "/tmp/go-cache"
       GOROOT: "/usr/local/go"
-    # ubuntu-24.04-generic-6.8.0-90-x86_64
+    # btf-80GiB-ubuntu-24.04-generic-6.11.0-29-x86_64
     runs-on:
-      - graas_ami-0aa4a09a843b6fa93_${{ github.event.number }}${{ github.run_attempt }}-${{ github.run_id }}
+      - graas_ami-0b7b78bd2ebf4bb80_${{ github.event.number }}${{ github.run_attempt }}-${{ github.run_id }}
       - EXECUTION_TYPE=LONG
     steps:
       #
