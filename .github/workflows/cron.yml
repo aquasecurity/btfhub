@@ -17,6 +17,19 @@ jobs:
           yum install -y yum-utils tar gzip xz golang clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel rsync
         shell: bash
       #
+      - name: Configure Git for HTTPS
+        run: |
+          # Force Git to use HTTPS instead of SSH to avoid terminal auth prompts
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+        shell: bash
+      #
+      - name: Configure Go Proxy
+        run: |
+          # Ensure Go uses the public proxy to pull pre-indexed modules
+          # This bypasses the need for local git authentication for public repos
+          go env -w GOPROXY=https://proxy.golang.org,direct
+        shell: bash
+      #
       - name: Setup Amazon Debuginfo Repositories
         run: |
           # disable default debuginfo repositories
