@@ -1,8 +1,6 @@
 module github.com/aquasecurity/btfhub
 
-go 1.24.0
-
-toolchain go1.24.2
+go 1.25.0
 
 require (
 	github.com/DataDog/zstd v1.5.7
@@ -10,7 +8,7 @@ require (
 	github.com/cavaliergopher/rpm v1.3.0
 	github.com/therootcompany/xz v1.0.1
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
-	golang.org/x/sync v0.19.0
+	golang.org/x/sync v0.20.0
 	pault.ag/go/debian v0.19.0
 )
 
