@@ -19,6 +19,7 @@ import (
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/kernel"
 	"github.com/aquasecurity/btfhub/pkg/pkg"
+	"github.com/aquasecurity/btfhub/pkg/preflight"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
@@ -139,6 +140,9 @@ func (d *suseRepo) processPackages(ctx context.Context, dir string, pkgs []pkg.P
 	for i, p := range pkgs {
 		log.Printf("DEBUG: start pkg %s (%d/%d)\n", p, i+1, len(pkgs))
 		if err := processPackage(ctx, p, dir, force, jobchan); err != nil {
+			if errors.Is(err, preflight.ErrWorkFound) {
+				return err
+			}
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", p)
 				return nil

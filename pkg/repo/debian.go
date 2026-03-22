@@ -13,6 +13,7 @@ import (
 
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/pkg"
+	"github.com/aquasecurity/btfhub/pkg/preflight"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
@@ -115,6 +116,8 @@ func (d *DebianRepo) GetKernelPackages(
 
 	sort.Sort(pkg.ByVersion(pkgs)) // so kernels can be skipped if previous has BTF already
 
+	pkgs = filterPackagesByManifest(ctx, "debian", release, arch, pkgs)
+
 	for i, pkg := range pkgs {
 		log.Printf("DEBUG: start pkg %s (%d/%d)\n", pkg, i+1, len(pkgs))
 
@@ -125,6 +128,9 @@ func (d *DebianRepo) GetKernelPackages(
 
 		err := processPackage(ctx, pkg, workDir, force, jobChan)
 		if err != nil {
+			if errors.Is(err, preflight.ErrWorkFound) {
+				return err
+			}
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil

@@ -1,6 +1,6 @@
 module github.com/aquasecurity/btfhub
 
-go 1.25.0
+go 1.26.1
 
 require (
 	github.com/DataDog/zstd v1.5.7

@@ -13,21 +13,22 @@ inputs:
 runs:
   using: composite
   steps:
-    #
     - name: Install ubuntu packages
-      run: |
-        ./tests/install-deps.sh ${{ inputs.from }}
       shell: bash
       working-directory: ${{ inputs.run-on }}
-    #
+      env:
+        FROM: ${{ inputs.from }}
+        RUN_ON: ${{ inputs.run-on }}
+      run: |
+        set -euo pipefail
+        # shellcheck source=.github/scripts/ci-helpers.sh
+        source .github/scripts/ci-helpers.sh
+        validate_ref "from" "${FROM}"
+        validate_relative_workdir "run-on" "${RUN_ON}"
+        ./tests/install-deps.sh "${FROM}"
     - name: Install pahole
-      run: |
-        ./3rdparty/pahole.sh
       shell: bash
       working-directory: ${{ inputs.run-on }}
-    #
-    # - name: Install bpftool
-    #   run: |
-    #     ./3rdparty/bpftool.sh
-    #   shell: bash
-    #   working-directory: ${{ inputs.run-on }}
+      run: |
+        set -euo pipefail
+        ./3rdparty/pahole.sh

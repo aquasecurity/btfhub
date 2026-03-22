@@ -77,19 +77,19 @@ APPLY_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --incremental|-i)
+        --incremental | -i)
             INCREMENTAL=true
             shift
             ;;
-        --exclude|-e)
+        --exclude | -e)
             EXCLUDE_MODE=true
             shift
             ;;
-        --no-apply|-n)
+        --no-apply | -n)
             NO_APPLY=true
             shift
             ;;
-        --apply-only|-a)
+        --apply-only | -a)
             APPLY_ONLY=true
             shift
             ;;
@@ -113,8 +113,7 @@ ARCHS="${ARCHS//aarch64/arm64}"
 
 for arch in $ARCHS; do
     case $arch in
-        x86_64|arm64|'*')
-            ;;
+        x86_64 | arm64 | '*') ;;
         *)
             die "invalid ARCH: $arch"
             ;;
@@ -195,7 +194,7 @@ if [ "$APPLY_ONLY" = false ]; then
             pattern="!$pattern"
         fi
         echo "$pattern" | tee $TEE_FLAG "$SPARSE_CHECKOUT_FILE"
-        TEE_FLAG="-a"  # After first iteration, always append
+        TEE_FLAG="-a" # After first iteration, always append
     }
 
     # Generate patterns based on DISTRO, ARCH, and VERSION
@@ -236,6 +235,6 @@ else
     echo "Applying sparse checkout and downloading files..."
     git -C "$ARCHIVE_DIR" sparse-checkout reapply || die "failed to reapply sparse-checkout"
     # Reset and checkout to force download of matching files
-    git -C "$ARCHIVE_DIR" reset --hard HEAD 2>/dev/null || echo "Reset completed"
+    git -C "$ARCHIVE_DIR" reset --hard HEAD 2> /dev/null || echo "Reset completed"
     echo "Sparse checkout completed successfully in $ARCHIVE_DIR"
 fi

@@ -7,3 +7,6 @@ custom-archive/*
 .check*
 # JetBrains
 .idea/
+
+# Local BTFHUB_HTTP_CACHE (see pkg/utils/http_cache.go)
+.btfhub-http-cache/

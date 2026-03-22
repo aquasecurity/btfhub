@@ -10,7 +10,9 @@ import (
 	"sort"
 
 	"github.com/aquasecurity/btfhub/pkg/job"
+	"github.com/aquasecurity/btfhub/pkg/manifest"
 	"github.com/aquasecurity/btfhub/pkg/pkg"
+	"github.com/aquasecurity/btfhub/pkg/preflight"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 	"golang.org/x/sync/errgroup"
 )
@@ -71,6 +73,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 	if err != nil {
 		return fmt.Errorf("parsing main package list: %s", err)
 	}
+	rawPkgs = nil // drop large index buffer before fetching ddebs index (RSS)
 
 	// Filter out kernel packages that we already have or failed to download
 
@@ -105,6 +108,7 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 	if err != nil {
 		return fmt.Errorf("parsing debug package list: %s", err)
 	}
+	dbgRawPkgs = nil // drop large ddebs index buffer before building work maps (RSS)
 
 	// Filter out kernel packages that we already have or failed to download
 
@@ -152,6 +156,16 @@ func (uRepo *UbuntuRepo) GetKernelPackages(
 				URL:           "pull-lp-ddebs",
 			}
 		}
+	}
+
+	// Apply -manifest filter to the Ubuntu debug package map (same JSONL as other distros).
+	if f := manifest.FilterFromContext(ctx); f != nil {
+		for id := range filteredKernelDbgPkgMap {
+			if !f.Match("ubuntu", release, arch, id) {
+				delete(filteredKernelDbgPkgMap, id)
+			}
+		}
+		log.Printf("DEBUG: after manifest filter, %d %s packages\n", len(filteredKernelDbgPkgMap), arch)
 	}
 
 	log.Printf("DEBUG: %d %s packages\n", len(filteredKernelDbgPkgMap), arch)
@@ -214,6 +228,9 @@ func (d *UbuntuRepo) processPackages(
 		// 2. Extract BTF info from vmlinux file
 
 		if err := processPackage(ctx, pkg, workDir, force, jobChan); err != nil {
+			if errors.Is(err, preflight.ErrWorkFound) {
+				return err
+			}
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil

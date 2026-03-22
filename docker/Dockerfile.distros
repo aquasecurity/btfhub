@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+
+# Pinned digest for ubuntu:24.04 (resolved docker.io/library/ubuntu:24.04 @ 2026-03-20).
+FROM docker.io/library/ubuntu:24.04@sha256:186072bba1b2f436cbb91ef2567abca677337cfc786c86e107d25b7072feef0c
+
+# RUN uses POSIX /bin/sh (Docker default). Align with shell style: shfmt -p -i 4 -ci -bn -sr; shellcheck -s sh.
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN set -eu; \
+    apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl git sudo psmisc procps \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /btfhub
+COPY . .
+
+RUN git submodule update --init --recursive 3rdparty/dwarves
+
+RUN ./tests/install-deps.sh pr
+
+RUN ./3rdparty/pahole.sh
+
+WORKDIR /btfhub

@@ -54,8 +54,8 @@ GO_VERSION_MIN = $(shell echo $(GO_VERSION) | $(CMD_CUT) -d'.' -f2)
 	| .check_$(CMD_GO)
 #
 	@if [ ${GO_VERSION_MAJ} -eq 1 ]; then
-		if [ ${GO_VERSION_MIN} -lt 24 ]; then
-			echo -n "you MUST use golang 1.24 or newer, "
+		if [ ${GO_VERSION_MIN} -lt 26 ]; then
+			echo -n "you MUST use golang 1.26 or newer, "
 			echo "your current golang version is ${GO_VERSION}"
 			exit 1
 		fi
@@ -224,6 +224,47 @@ take: \
 	echo ""
 	echo "INFO: now goto $(BTFHUB_ARCHIVE_DIR) and commit the changes"
 	echo ""
+
+#
+# docker (local CI-like toolchains; see docker/README.md)
+#
+
+# BTFHUB_ARGS - flags for ./btfhub inside the container, e.g.:
+#   make docker-distros-btfhub BTFHUB_ARGS="-workers 4 -d debian -r bullseye"
+#   make docker-amazon-btfhub BTFHUB_ARGS="-workers 4 -d amzn -r 2"
+BTFHUB_ARGS ?=
+
+.PHONY: docker-distros-build docker-amazon-build \
+	docker-distros-bash docker-amazon-bash \
+	docker-distros-btfhub docker-amazon-btfhub \
+	docker-distros-make docker-amazon-make
+
+docker-distros-build:
+	docker build -f docker/Dockerfile.distros -t btfhub-distros:dev .
+
+docker-amazon-build:
+	docker build -f docker/Dockerfile.amazon -t btfhub-amazon:dev .
+
+# Interactive bash; repo is mounted at /btfhub (see docker/run-*.sh).
+docker-distros-bash:
+	./docker/run-distros.sh bash
+
+docker-amazon-bash:
+	./docker/run-amazon.sh bash
+
+# Build btfhub inside the image (same as one-shot ./docker/run-*.sh make).
+docker-distros-make:
+	./docker/run-distros.sh make
+
+docker-amazon-make:
+	./docker/run-amazon.sh make
+
+# Run the tool from the mounted tree; requires ./btfhub binary (run docker-*-make once).
+docker-distros-btfhub:
+	./docker/run-distros.sh ./btfhub $(BTFHUB_ARGS)
+
+docker-amazon-btfhub:
+	./docker/run-amazon.sh ./btfhub $(BTFHUB_ARGS)
 
 #
 # clean

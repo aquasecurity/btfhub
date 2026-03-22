@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-set -x # for debugging
+# set -x # for debugging
 
 # This script installs the dependencies for compiling btfhub and running the
 # tests.
@@ -25,7 +25,7 @@ wait_for_apt_locks() {
 
     echo "Checking for unattended-upgrades..."
     while pgrep -f unattended-upgrades > /dev/null; do
-        if (( elapsed >= timeout )); then
+        if ((elapsed >= timeout)); then
             echo "Timed out waiting for unattended-upgrades to finish. Attempting to kill..."
             pkill -SIGQUIT -f unattended-upgrades || true
             pkill -SIGKILL -f unattended-upgrades || true
@@ -40,29 +40,29 @@ wait_for_apt_locks() {
     timeout=5 # reduce timeout for apt locks
     elapsed=0 # reset timer
 
-    while : ; do
-        if ! fuser $lock >/dev/null 2>&1 &&
-           ! fuser $lock_frontend >/dev/null 2>&1 &&
-           ! fuser $lock_lists >/dev/null 2>&1 &&
-           ! fuser $lock_archives >/dev/null 2>&1; then
+    while :; do
+        if ! fuser $lock > /dev/null 2>&1 \
+            && ! fuser $lock_frontend > /dev/null 2>&1 \
+            && ! fuser $lock_lists > /dev/null 2>&1 \
+            && ! fuser $lock_archives > /dev/null 2>&1; then
             echo "All apt locks are free."
             break
         fi
 
-        if (( elapsed >= timeout )); then
+        if ((elapsed >= timeout)); then
             echo "Timed out waiting for apt locks to be released. Attempting to kill locking processes."
-            fuser -k -SIGQUIT $lock >/dev/null 2>&1 || true
-            fuser -k -SIGQUIT $lock_frontend >/dev/null 2>&1 || true
-            fuser -k -SIGQUIT $lock_lists >/dev/null 2>&1 || true
-            fuser -k -SIGQUIT $lock_archives >/dev/null 2>&1 || true
+            fuser -k -SIGQUIT $lock > /dev/null 2>&1 || true
+            fuser -k -SIGQUIT $lock_frontend > /dev/null 2>&1 || true
+            fuser -k -SIGQUIT $lock_lists > /dev/null 2>&1 || true
+            fuser -k -SIGQUIT $lock_archives > /dev/null 2>&1 || true
 
             # Give some time for processes to terminate gracefully
             sleep 2
 
-            fuser -k -SIGKILL $lock >/dev/null 2>&1 || true
-            fuser -k -SIGKILL $lock_frontend >/dev/null 2>&1 || true
-            fuser -k -SIGKILL $lock_lists >/dev/null 2>&1 || true
-            fuser -k -SIGKILL $lock_archives >/dev/null 2>&1 || true
+            fuser -k -SIGKILL $lock > /dev/null 2>&1 || true
+            fuser -k -SIGKILL $lock_frontend > /dev/null 2>&1 || true
+            fuser -k -SIGKILL $lock_lists > /dev/null 2>&1 || true
+            fuser -k -SIGKILL $lock_archives > /dev/null 2>&1 || true
 
             # Delete lock files if they still exist
             rm -f $lock $lock_frontend $lock_lists $lock_archives
@@ -334,7 +334,7 @@ apt-get install -y \
 
 # Install dependencies based on the origin
 
-GO_VERSION="1.24.2"
+GO_VERSION="1.26.1"
 LLVM_VERSION="14.0.6"
 
 install_golang_from_github "$GO_VERSION"

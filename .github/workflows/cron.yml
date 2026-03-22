@@ -1,72 +1,165 @@
 name: Update BTFHub Archive
+# Default for any job without its own `permissions:`.
 permissions:
   contents: read
 on:
   schedule:
     - cron: "0 1 * * *"
   workflow_dispatch: {}
+
 jobs:
-  amazon-update:
-    name: Update Amazon 2 BTF Archive
-    runs-on: ubuntu-latest
-    container:
-      image: amazonlinux:2023
+  # --- Amazon: list paths -> generate (no PAT) -> push (PAT only) ---
+  amazon-list:
+    name: Amazon - list archive paths
+    permissions:
+      contents: read
+      actions: write # upload-artifact
+    runs-on: ubuntu-24.04
     steps:
-      - name: Install needed amazon packages
-        run: |
-          yum install -y yum-utils tar gzip xz clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel rsync
-        shell: bash
-      #
-      - name: Set up Go
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417  # v6.3.0
+      - name: Amazon - checkout scripts only
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          go-version: "1.25"
-      #
-      - name: Configure Git for HTTPS
+          sparse-checkout-cone-mode: true
+          sparse-checkout: |
+            .github/scripts
+      - name: Amazon - list paths in btfhub-archive (GitHub API, no clone)
+        shell: bash
         run: |
-          # Force Git to use HTTPS instead of SSH to avoid terminal auth prompts
+          set -euo pipefail
+          mkdir -p paths
+          python3 .github/scripts/fetch-archive-paths-github.py \
+              paths/existing-archive-paths.txt amzn/
+      - name: Amazon - upload path list
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: amazon-archive-paths
+          path: paths/
+          retention-days: 5
+      - name: Amazon - job summary
+        if: always()
+        shell: bash
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SERVER_URL: ${{ github.server_url }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/ci-helpers.sh
+          n="(missing)"
+          if [[ -f paths/existing-archive-paths.txt ]]; then
+              n="$(wc -l < paths/existing-archive-paths.txt | tr -d ' ')"
+          fi
+          run_url="${GH_SERVER_URL}/${GH_REPOSITORY}/actions/runs/${GH_RUN_ID}"
+          {
+              echo "## Amazon - list archive paths"
+              echo ""
+              echo "| Key | Value |"
+              echo "| --- | --- |"
+              echo "| Event | \`${GH_EVENT_NAME}\` |"
+              echo "| Ref / SHA | \`${GH_REF_NAME}\` / \`${GH_SHA}\` |"
+              echo "| Run | [${GH_RUN_ID}](${run_url}) |"
+              echo "| Indexed archive paths (\`amzn/\`) | **${n}** |"
+              echo "| Artifact | \`amazon-archive-paths\` (retention 5d) |"
+          } | summary_append
+
+  # Setup + preflight + conditional generate stay in one job: preflight runs ./btfhub against real
+  # repo metadata (needs this image, yum debug repos, built binary, placeholders). Splitting into
+  # separate jobs would either rebuild everything for "generate" or ship a large artifact (tree +
+  # /usr/local from pahole). Push is skipped when preflight needs no work or collect only wrote .skip-push.
+  amazon-generate:
+    name: Amazon - generate BTF archive
+    needs: amazon-list
+    permissions:
+      contents: read
+      actions: write # download-artifact + upload-artifact
+    runs-on: ubuntu-24.04
+    env:
+      # Per-URL HTTP cache for btfhub (SHA256 keys + conditional GET). AL2 path uses yum/repoquery
+      # for metadata; cache still helps any utils.Download/GetLinks traffic (e.g. RPM URLs).
+      BTFHUB_HTTP_CACHE: ${{ github.workspace }}/btfhub/.btfhub-http-cache
+    outputs:
+      needs_amazon: ${{ steps.preflight.outputs.needs_amazon }}
+      has_new_amazon_blobs: ${{ steps.push_gate.outputs.has_new_amazon_blobs }}
+    container:
+      # docker.io: same digest as Docker Hub; unprefixed "amazonlinux" breaks on Podman (resolves to ECR).
+      image: docker.io/library/amazonlinux:2023@sha256:162fc5b69e11e81023f83a1ab618b184927ff3002d0852432af3b6ae4a1b5304
+    steps:
+      - name: Amazon - install packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          yum install -y yum-utils tar gzip xz clang make cmake git \
+              libdwarf-devel elfutils-libelf-devel elfutils-devel rsync findutils
+      - name: Amazon - configure Git for HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
           git config --global url."https://github.com/".insteadOf "git@github.com:"
-        shell: bash
-      #
-      - name: Configure Go Proxy
-        run: |
-          # Ensure Go uses the public proxy to pull pre-indexed modules
-          # This bypasses the need for local git authentication for public repos
-          go env -w GOPROXY=https://proxy.golang.org,direct
-        shell: bash
-      #
-      - name: Setup Amazon Debuginfo Repositories
-        run: |
-          # disable default debuginfo repositories
-          yum-config-manager -y --disable amazonlinux-debuginfo
-
-          # add Amazon Linux 2 debuginfo repositories
-          append_repo() {
-            local arch=$1
-            local repo_name="amzn2-core-debuginfo-$arch"
-            
-            echo "[$repo_name]
-          name=Amazon Linux 2 core repository - debuginfo packages $arch
-          mirrorlist=http://amazonlinux.default.amazonaws.com/2/core/latest/debuginfo/$arch/mirror.list
-          enabled=1
-          "
-          }
-
-          cat << EOF >> /etc/yum.repos.d/amazonlinux.repo
-          $(append_repo "x86_64")
-          $(append_repo "aarch64")
-          EOF
-        shell: bash
-      #
-      - name: Checkout BTFHub
+      - name: Amazon - checkout BTFHub
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: aquasecurity/btfhub
           submodules: recursive
           path: ./btfhub
-      #
-      - name: Build and install pahole
+      - name: Amazon - restore/save HTTP metadata cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: btfhub/.btfhub-http-cache
+          key: btfhub-http-amazon-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            btfhub-http-amazon-
+      # Post-job cache save requires this path to exist; preflight may skip btfhub (no Download -> no MkdirAll).
+      - name: Amazon - ensure HTTP cache directory exists
+        shell: bash
+        run: mkdir -p btfhub/.btfhub-http-cache
+      - name: Amazon - set up Go
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        with:
+          go-version: "1.26.1"
+          cache: true
+          cache-dependency-path: btfhub/go.sum
+      - name: Amazon - configure Go proxy
+        shell: bash
         run: |
+          set -euo pipefail
+          go env -w GOPROXY=https://proxy.golang.org,direct
+      - name: Amazon - setup debuginfo repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+          yum-config-manager -y --disable amazonlinux-debuginfo
+          append_repo() {
+              local arch="$1"
+              local repo_name="amzn2-core-debuginfo-${arch}"
+              echo "[${repo_name}]
+          name=Amazon Linux 2 core repository - debuginfo packages ${arch}
+          mirrorlist=http://amazonlinux.default.amazonaws.com/2/core/latest/debuginfo/${arch}/mirror.list
+          enabled=1
+          "
+          }
+          cat << EOF >> /etc/yum.repos.d/amazonlinux.repo
+          $(append_repo "x86_64")
+          $(append_repo "aarch64")
+          EOF
+      - name: Amazon - download archive path list
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: amazon-archive-paths
+          path: archive-paths
+      - name: Amazon - placeholder existing archive files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p btfhub/archive
+          bash btfhub/.github/scripts/ci-archive-placeholders.sh \
+              archive-paths/existing-archive-paths.txt btfhub/archive
+      - name: Amazon - build and install pahole
+        shell: bash
+        run: |
+          set -euo pipefail
           cd btfhub/3rdparty/dwarves
           mkdir build
           cd build
@@ -74,169 +167,649 @@ jobs:
           make install
           echo "/usr/local/lib" >> /etc/ld.so.conf.d/pahole.conf
           ldconfig
+      - name: Amazon - compile BTFHub tool
         shell: bash
-      #
-      # - name: Build and install bpftool
-      #   run: |
-      #     cd btfhub/3rdparty/bpftool
-      #     make -C src clean
-      #     CC=clang make -C src all
-      #     cp ./src/bpftool /usr/sbin/bpftool
-      #     make -C src clean
-      #   shell: bash
-      #
-      - name: Compile BTFHub Tool
         run: |
+          set -euo pipefail
           cd btfhub
           make
+      - name: Amazon - preflight (skip downloads when archive already has all kernels)
+        id: preflight
         shell: bash
-      #
-      - name: Checkout BTFHub Archive
+        run: |
+          set -euo pipefail
+          cd btfhub
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source .github/scripts/ci-helpers.sh
+          rm -f preflight-work.jsonl
+          set +e
+          ./btfhub -preflight -index ../archive-paths/existing-archive-paths.txt \
+              -manifest-out preflight-work.jsonl -d amzn -r 2
+          code=$?
+          set -e
+          if [[ "${code}" -eq 0 ]]; then
+              set_output "needs_amazon" "false"
+          elif [[ "${code}" -eq 1 ]]; then
+              set_output "needs_amazon" "true"
+          else
+              exit "${code}"
+          fi
+      - name: Amazon - fetch and generate BTFs (AL2)
+        id: amazon_generate_btfs
+        if: steps.preflight.outputs.needs_amazon == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          ./btfhub -workers 6 -d amzn -r 2 -manifest preflight-work.jsonl
+      - name: Amazon - collect new artifacts for push
+        id: collect
+        if: steps.preflight.outputs.needs_amazon == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash btfhub/.github/scripts/ci-archive-collect-new.sh \
+              archive-paths/existing-archive-paths.txt btfhub/archive upload-btfs
+      - name: Amazon - gate push on new blobs (not .skip-push only)
+        id: push_gate
+        if: always()
+        env:
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=btfhub/.github/scripts/ci-helpers.sh
+          source btfhub/.github/scripts/ci-helpers.sh
+          if [[ "${COLLECT_OUTCOME}" != "success" ]]; then
+            set_output "has_new_amazon_blobs" "false"
+            exit 0
+          fi
+          if [[ -f upload-btfs/.skip-push ]]; then
+            set_output "has_new_amazon_blobs" "false"
+          else
+            set_output "has_new_amazon_blobs" "true"
+          fi
+      - name: Amazon - upload new BTF artifacts
+        id: amazon_upload_btfs
+        if: steps.collect.outcome == 'success' && steps.push_gate.outputs.has_new_amazon_blobs == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: amazon-new-btfs
+          path: upload-btfs/
+          retention-days: 5
+          # ci-archive-collect-new.sh uses .skip-push when there are no new blobs; upload-artifact v4+ skips dotfiles by default.
+          include-hidden-files: true
+      - name: Amazon - job summary
+        if: always()
+        shell: bash
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SERVER_URL: ${{ github.server_url }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_SHA: ${{ github.sha }}
+          NEEDS_AMAZON: ${{ steps.preflight.outputs.needs_amazon }}
+          HAS_NEW_AMAZON_BLOBS: ${{ steps.push_gate.outputs.has_new_amazon_blobs }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          GENERATE_OUTCOME: ${{ steps.amazon_generate_btfs.outcome }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.amazon_upload_btfs.outcome }}
+        run: |
+          set -euo pipefail
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source btfhub/.github/scripts/ci-helpers.sh
+          run_url="${GH_SERVER_URL}/${GH_REPOSITORY}/actions/runs/${GH_RUN_ID}"
+          newc="-"
+          btf_archives="-"
+          sidecars="-"
+          if [[ -d upload-btfs ]]; then
+              newc="$(find upload-btfs -type f ! -name '.skip-push' 2> /dev/null | wc -l | tr -d ' ')"
+              btf_archives="$(find upload-btfs -type f -name '*.btf.tar.xz' 2> /dev/null | wc -l | tr -d ' ')"
+              sidecars="$(find upload-btfs -type f \( -name '*.hasbtf' -o -name '*.failed' \) 2> /dev/null | wc -l | tr -d ' ')"
+          fi
+          skip="-"
+          [[ -f upload-btfs/.skip-push ]] && skip="yes (no new blobs to push)"
+          {
+              echo "## Amazon - generate BTF archive"
+              echo ""
+              echo "| Key | Value |"
+              echo "| --- | --- |"
+              echo "| Event | \`${GH_EVENT_NAME}\` |"
+              echo "| Ref / SHA | \`${GH_REF_NAME}\` / \`${GH_SHA}\` |"
+              echo "| Run | [${GH_RUN_ID}](${run_url}) |"
+              echo "| Job output \`needs_amazon\` | \`${NEEDS_AMAZON:-}\` |"
+              echo "| Gate \`has_new_amazon_blobs\` (push job) | \`${HAS_NEW_AMAZON_BLOBS:-}\` |"
+              echo "| Step: preflight | \`${PREFLIGHT_OUTCOME}\` |"
+              echo "| Step: generate (\`amzn\` / AL2) | \`${GENERATE_OUTCOME}\` |"
+              echo "| Step: collect | \`${COLLECT_OUTCOME}\` |"
+              echo "| Step: upload artifact | \`${UPLOAD_OUTCOME}\` |"
+              echo "| New BTF archives (\`*.btf.tar.xz\`) | **${btf_archives}** |"
+              echo "| New sidecar files (\`*.hasbtf\` / \`*.failed\`) | **${sidecars}** |"
+              echo "| Total files in \`upload-btfs/\` (excl. \`.skip-push\`) | **${newc}** |"
+              echo "| \`.skip-push\` marker | ${skip} |"
+              echo "| Workers | 6 |"
+              bash btfhub/.github/scripts/http-cache-summary.sh "${BTFHUB_HTTP_CACHE:-btfhub/.btfhub-http-cache}"
+          } | summary_append
+
+  amazon-push:
+    name: Amazon - push BTF archive
+    needs: amazon-generate
+    if: >-
+      always()
+      && needs.amazon-generate.result == 'success'
+      && needs.amazon-generate.outputs.has_new_amazon_blobs == 'true'
+    permissions:
+      contents: read
+      actions: read # download-artifact only; push uses PAT secret
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Amazon - checkout BTFHub (actions + scripts only)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: aquasecurity/btfhub
+          path: ./btfhub
+          sparse-checkout-cone-mode: true
+          sparse-checkout: |
+            .github
+      - name: Amazon - checkout BTFHub archive
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: aquasecurity/btfhub-archive
-          token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
           persist-credentials: false
           fetch-depth: 1
           path: ./btfhub-archive
+          sparse-checkout-cone-mode: true
           sparse-checkout: |
             amzn
-      #
-      - name: Bring current BTFHub Archive
-        run: |
-          cd btfhub
-          make bring
-        shell: bash
-      #
-      - name: Fetch and Generate new BTFs (AMAZON 2)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d amzn -r 2
-      #
-      - name: Take new BTFs to BTFHub Archive
-        run: |
-          cd btfhub
-          make take
-      #
-      - name: Check Status
-        run: |
-          cd btfhub-archive
-          git status
-      #
-      - name: Commit and Push to BTFHub Archive
-        uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
+      - name: Amazon - download new BTF artifacts
+        id: amazon_push_download
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          directory: ./btfhub-archive
-          author_email: 'geyslan@gmail.com'
-          author_name: 'Geyslan Gregório'
-          github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
-          message: 'Update BTFHUB Archive from BTFHUB'
-          repository: aquasecurity/btfhub-archive
-          branch: main
+          name: amazon-new-btfs
+          path: new-btfs
+      - name: Amazon - merge into archive checkout
+        id: merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source ./btfhub/.github/scripts/ci-helpers.sh
+          if [[ -f new-btfs/.skip-push ]]; then
+              set_output "skip" "true"
+              echo "No new BTF artifacts to push."
+          else
+              bash ./btfhub/.github/scripts/ci-archive-merge-for-push.sh new-btfs btfhub-archive
+              set_output "skip" "false"
+          fi
+      - name: Amazon - commit and push to BTFHub archive
+        id: archive_amazon_commit_push
+        if: steps.merge.outputs.skip != 'true'
+        uses: ./btfhub/.github/actions/commit-push-archive
+        with:
+          working-directory: btfhub-archive
+          author_email: gg@condado.dev
+          author_name: Geyslan Gregório
+          github_token: ${{ secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN }}
+      - name: Amazon - job summary
+        if: always()
+        shell: bash
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SERVER_URL: ${{ github.server_url }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_SHA: ${{ github.sha }}
+          MERGE_SKIP: ${{ steps.merge.outputs.skip }}
+          MERGE_OUTCOME: ${{ steps.merge.outcome }}
+          DL_OUTCOME: ${{ steps.amazon_push_download.outcome }}
+          COMMIT_PUSH_OUTCOME: ${{ steps.archive_amazon_commit_push.outcome }}
+        run: |
+          set -euo pipefail
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source ./btfhub/.github/scripts/ci-helpers.sh
+          run_url="${GH_SERVER_URL}/${GH_REPOSITORY}/actions/runs/${GH_RUN_ID}"
+          {
+              echo "## Amazon - push BTF archive"
+              echo ""
+              echo "| Key | Value |"
+              echo "| --- | --- |"
+              echo "| Event | \`${GH_EVENT_NAME}\` |"
+              echo "| Ref / SHA | \`${GH_REF_NAME}\` / \`${GH_SHA}\` |"
+              echo "| Run | [${GH_RUN_ID}](${run_url}) |"
+              echo "| Target | \`aquasecurity/btfhub-archive\` (sparse \`amzn/\`) |"
+              echo "| Step: download artifact | \`${DL_OUTCOME}\` |"
+              echo "| Step: merge | \`${MERGE_OUTCOME}\` |"
+              echo "| Merge output \`skip\` | \`${MERGE_SKIP:-}\` |"
+              echo "| Step: commit && push | \`${COMMIT_PUSH_OUTCOME}\` |"
+          } | summary_append
 
-  build:
-    name: Update BTF Archive
+  # --- Other distros: same 3-phase split ---
+  distros-list:
+    name: Distros - list archive paths
+    permissions:
+      contents: read
+      actions: write # upload-artifact
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Distros - checkout scripts only
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout-cone-mode: true
+          sparse-checkout: |
+            .github/scripts
+      - name: Distros - list paths in btfhub-archive (GitHub API, no clone)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p paths
+          python3 .github/scripts/fetch-archive-paths-github.py \
+              paths/existing-archive-paths.txt \
+              centos/ debian/ fedora/ ol/ ubuntu/
+      - name: Distros - upload path list
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: distros-archive-paths
+          path: paths/
+          retention-days: 5
+      - name: Distros - job summary
+        if: always()
+        shell: bash
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SERVER_URL: ${{ github.server_url }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          source .github/scripts/ci-helpers.sh
+          n="(missing)"
+          n_centos="-"
+          n_debian="-"
+          n_fedora="-"
+          n_ol="-"
+          n_ubuntu="-"
+          if [[ -f paths/existing-archive-paths.txt ]]; then
+              n="$(wc -l < paths/existing-archive-paths.txt | tr -d ' ')"
+              read -r n_centos n_debian n_fedora n_ol n_ubuntu < <(awk '
+                  /^centos\//  { c++ }
+                  /^debian\//  { d++ }
+                  /^fedora\//  { f++ }
+                  /^ol\//      { o++ }
+                  /^ubuntu\//  { u++ }
+                  END { print c + 0, d + 0, f + 0, o + 0, u + 0 }
+              ' paths/existing-archive-paths.txt)
+          fi
+          run_url="${GH_SERVER_URL}/${GH_REPOSITORY}/actions/runs/${GH_RUN_ID}"
+          {
+              echo "## Distros - list archive paths"
+              echo ""
+              echo "| Key | Value |"
+              echo "| --- | --- |"
+              echo "| Event | \`${GH_EVENT_NAME}\` |"
+              echo "| Ref / SHA | \`${GH_REF_NAME}\` / \`${GH_SHA}\` |"
+              echo "| Run | [${GH_RUN_ID}](${run_url}) |"
+              echo "| Indexed archive paths (all prefixes) | **${n}** |"
+              echo "| Paths \`centos/\` | **${n_centos}** |"
+              echo "| Paths \`debian/\` | **${n_debian}** |"
+              echo "| Paths \`fedora/\` | **${n_fedora}** |"
+              echo "| Paths \`ol/\` | **${n_ol}** |"
+              echo "| Paths \`ubuntu/\` | **${n_ubuntu}** |"
+              echo "| Artifact | \`distros-archive-paths\` (retention 5d) |"
+          } | summary_append
+
+  # Memory/disk-heavy on self-hosted runners (lost communication = often OOM/disk/full freeze).
+  # Graas: INSTANCE_TYPE=2XLARGE -> t3a.2xlarge / t4g.2xlarge + 250GB; btfhub uses 6 workers per distro.
+  distros-generate:
+    name: Distros - generate BTF archive
+    needs: distros-list
+    permissions:
+      contents: read
+      actions: write # download-artifact + upload-artifact
     env:
       HOME: "/tmp/root"
       GOPATH: "/tmp/go"
       GOCACHE: "/tmp/go-cache"
       GOROOT: "/usr/local/go"
-    # btf-80GiB-ubuntu-24.04-generic-6.11.0-29-x86_64
+      # Per-URL HTTP cache (Packages indices, repo HTML listings, package URLs) - see pkg/utils/http_cache.go
+      BTFHUB_HTTP_CACHE: ${{ github.workspace }}/btfhub/.btfhub-http-cache
     runs-on:
       - graas_ami-0b7b78bd2ebf4bb80_${{ github.event.number }}${{ github.run_attempt }}-${{ github.run_id }}
       - EXECUTION_TYPE=LONG
+      - INSTANCE_TYPE=2XLARGE
+    outputs:
+      needs_archive_push: ${{ steps.preflight.outputs.needs_centos == 'true' || steps.preflight.outputs.needs_debian == 'true' || steps.preflight.outputs.needs_fedora == 'true' || steps.preflight.outputs.needs_ol == 'true' || steps.preflight.outputs.needs_ubuntu == 'true' }}
+      has_new_distros_blobs: ${{ steps.push_gate.outputs.has_new_distros_blobs }}
     steps:
-      #
-      - name: Setup Swap File
+      - name: Distros - setup swap file
+        shell: bash
         run: |
+          set -euo pipefail
           fallocate -l 16G /swapfile
           chmod 600 /swapfile
           mkswap /swapfile
           swapon /swapfile
-        shell: bash
-      #
-      - name: Checkout BTFHub
+      - name: Distros - checkout BTFHub
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
-      #
-      - name: "Prepare Image (Fix AMI)"
+      - name: Distros - restore/save HTTP metadata cache
+        uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: btfhub/.btfhub-http-cache
+          key: btfhub-http-distros-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            btfhub-http-distros-
+      # Post-job cache save requires this path to exist; preflight may skip all distros (no Download -> no MkdirAll).
+      - name: Distros - ensure HTTP cache directory exists
+        shell: bash
+        run: mkdir -p btfhub/.btfhub-http-cache
+      - name: Distros - prepare image (fix AMI)
         uses: ./btfhub/.github/actions/build-dependencies
         with:
           run-on: ./btfhub
           from: cron
-      #
-      - name: Checkout BTFHub Archive
+      - name: Distros - download archive path list
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: distros-archive-paths
+          path: archive-paths
+      - name: Distros - placeholder existing archive files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p btfhub/archive
+          bash btfhub/.github/scripts/ci-archive-placeholders.sh \
+              archive-paths/existing-archive-paths.txt btfhub/archive
+      - name: Distros - compile BTFHub tool
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          make
+      - name: Distros - preflight (skip downloads when archive already has all kernels)
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source .github/scripts/ci-helpers.sh
+          idx="../archive-paths/existing-archive-paths.txt"
+          rm -f preflight-work.jsonl
+          for entry in "centos:-d centos" "debian:-d debian -r bullseye" "fedora:-d fedora" "ol:-d ol" "ubuntu:-d ubuntu"; do
+              distro="${entry%%:*}"
+              args="${entry#*:}"
+              set +e
+              # shellcheck disable=SC2086
+              ./btfhub -preflight -index "${idx}" -manifest-out preflight-work.jsonl ${args}
+              code=$?
+              set -e
+              if [[ "${code}" -eq 1 ]]; then
+                  set_output "needs_${distro}" "true"
+              elif [[ "${code}" -eq 0 ]]; then
+                  set_output "needs_${distro}" "false"
+              else
+                  exit "${code}"
+              fi
+          done
+      - name: Distros - fetch & generate (centos)
+        id: gen_centos
+        if: steps.preflight.outputs.needs_centos == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          ./btfhub -workers 6 -d centos -manifest preflight-work.jsonl
+      - name: Distros - fetch & generate (debian)
+        id: gen_debian
+        if: steps.preflight.outputs.needs_debian == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          ./btfhub -workers 6 -d debian -r bullseye -manifest preflight-work.jsonl
+      - name: Distros - fetch & generate (fedora)
+        id: gen_fedora
+        if: steps.preflight.outputs.needs_fedora == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          ./btfhub -workers 6 -d fedora -manifest preflight-work.jsonl
+      - name: Distros - fetch & generate (oracle)
+        id: gen_ol
+        if: steps.preflight.outputs.needs_ol == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          ./btfhub -workers 6 -d ol -manifest preflight-work.jsonl
+      - name: Distros - fetch & generate (ubuntu)
+        id: gen_ubuntu
+        if: steps.preflight.outputs.needs_ubuntu == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd btfhub
+          ./btfhub -workers 6 -d ubuntu -manifest preflight-work.jsonl
+      - name: Distros - collect new artifacts for push
+        id: collect
+        if: >-
+          steps.preflight.outputs.needs_centos == 'true'
+          || steps.preflight.outputs.needs_debian == 'true'
+          || steps.preflight.outputs.needs_fedora == 'true'
+          || steps.preflight.outputs.needs_ol == 'true'
+          || steps.preflight.outputs.needs_ubuntu == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash btfhub/.github/scripts/ci-archive-collect-new.sh \
+              archive-paths/existing-archive-paths.txt btfhub/archive upload-btfs
+      - name: Distros - gate push on new blobs (not .skip-push only)
+        id: push_gate
+        if: always()
+        env:
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=btfhub/.github/scripts/ci-helpers.sh
+          source btfhub/.github/scripts/ci-helpers.sh
+          if [[ "${COLLECT_OUTCOME}" != "success" ]]; then
+            set_output "has_new_distros_blobs" "false"
+            exit 0
+          fi
+          if [[ -f upload-btfs/.skip-push ]]; then
+            set_output "has_new_distros_blobs" "false"
+          else
+            set_output "has_new_distros_blobs" "true"
+          fi
+      - name: Distros - upload new BTF artifacts
+        id: distros_upload_btfs
+        if: steps.collect.outcome == 'success' && steps.push_gate.outputs.has_new_distros_blobs == 'true'
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: distros-new-btfs
+          path: upload-btfs/
+          retention-days: 5
+          # Same as Amazon: .skip-push is a dotfile; must be uploaded or push job cannot download-artifact.
+          include-hidden-files: true
+      - name: Distros - job summary
+        if: always()
+        shell: bash
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SERVER_URL: ${{ github.server_url }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_SHA: ${{ github.sha }}
+          RUNNER_RUN_ID: ${{ github.run_id }}
+          RUNNER_ATTEMPT: ${{ github.run_attempt }}
+          NEEDS_CENTOS: ${{ steps.preflight.outputs.needs_centos }}
+          NEEDS_DEBIAN: ${{ steps.preflight.outputs.needs_debian }}
+          NEEDS_FEDORA: ${{ steps.preflight.outputs.needs_fedora }}
+          NEEDS_OL: ${{ steps.preflight.outputs.needs_ol }}
+          NEEDS_UBUNTU: ${{ steps.preflight.outputs.needs_ubuntu }}
+          HAS_NEW_DISTROS_BLOBS: ${{ steps.push_gate.outputs.has_new_distros_blobs }}
+          PREFLIGHT_OUTCOME: ${{ steps.preflight.outcome }}
+          OUT_CENTOS: ${{ steps.gen_centos.outcome }}
+          OUT_DEBIAN: ${{ steps.gen_debian.outcome }}
+          OUT_FEDORA: ${{ steps.gen_fedora.outcome }}
+          OUT_OL: ${{ steps.gen_ol.outcome }}
+          OUT_UBUNTU: ${{ steps.gen_ubuntu.outcome }}
+          COLLECT_OUTCOME: ${{ steps.collect.outcome }}
+          UPLOAD_OUTCOME: ${{ steps.distros_upload_btfs.outcome }}
+        run: |
+          set -euo pipefail
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source btfhub/.github/scripts/ci-helpers.sh
+          run_url="${GH_SERVER_URL}/${GH_REPOSITORY}/actions/runs/${GH_RUN_ID}"
+          newc="-"
+          btf_archives="-"
+          sidecars="-"
+          if [[ -d upload-btfs ]]; then
+              newc="$(find upload-btfs -type f ! -name '.skip-push' 2> /dev/null | wc -l | tr -d ' ')"
+              btf_archives="$(find upload-btfs -type f -name '*.btf.tar.xz' 2> /dev/null | wc -l | tr -d ' ')"
+              sidecars="$(find upload-btfs -type f \( -name '*.hasbtf' -o -name '*.failed' \) 2> /dev/null | wc -l | tr -d ' ')"
+          fi
+          skip="-"
+          [[ -f upload-btfs/.skip-push ]] && skip="yes (no new blobs to push)"
+          {
+              echo "## Distros - generate BTF archive"
+              echo ""
+              echo "| Key | Value |"
+              echo "| --- | --- |"
+              echo "| Event | \`${GH_EVENT_NAME}\` |"
+              echo "| Ref / SHA | \`${GH_REF_NAME}\` / \`${GH_SHA}\` |"
+              echo "| Run | [${GH_RUN_ID}](${run_url}) |"
+              echo "| Run id / attempt | \`${RUNNER_RUN_ID}\` / \`${RUNNER_ATTEMPT}\` |"
+              echo "| Job output \`needs_archive_push\` | \`${{ steps.preflight.outputs.needs_centos == 'true' || steps.preflight.outputs.needs_debian == 'true' || steps.preflight.outputs.needs_fedora == 'true' || steps.preflight.outputs.needs_ol == 'true' || steps.preflight.outputs.needs_ubuntu == 'true' }}\` |"
+              echo "| Gate \`has_new_distros_blobs\` (push job) | \`${HAS_NEW_DISTROS_BLOBS:-}\` |"
+              echo "| Preflight step | \`${PREFLIGHT_OUTCOME}\` |"
+              echo ""
+              echo "### Preflight: work needed?"
+              echo ""
+              echo "| Distro | needs_* | Generate step |"
+              echo "| --- | --- | --- |"
+              echo "| centos | \`${NEEDS_CENTOS}\` | \`${OUT_CENTOS}\` |"
+              echo "| debian (bullseye) | \`${NEEDS_DEBIAN}\` | \`${OUT_DEBIAN}\` |"
+              echo "| fedora | \`${NEEDS_FEDORA}\` | \`${OUT_FEDORA}\` |"
+              echo "| ol | \`${NEEDS_OL}\` | \`${OUT_OL}\` |"
+              echo "| ubuntu | \`${NEEDS_UBUNTU}\` | \`${OUT_UBUNTU}\` |"
+              echo ""
+              echo "### Collect / upload"
+              echo ""
+              echo "| Step | Outcome |"
+              echo "| --- | --- |"
+              echo "| collect | \`${COLLECT_OUTCOME}\` |"
+              echo "| upload artifact | \`${UPLOAD_OUTCOME}\` |"
+              echo "| New BTF archives (\`*.btf.tar.xz\`) | **${btf_archives}** |"
+              echo "| New sidecar files (\`*.hasbtf\` / \`*.failed\`) | **${sidecars}** |"
+              echo "| Total files in \`upload-btfs/\` (excl. \`.skip-push\`) | **${newc}** |"
+              echo "| \`.skip-push\` | ${skip} |"
+              echo "| Workers per distro | 6 |"
+              bash btfhub/.github/scripts/http-cache-summary.sh "${BTFHUB_HTTP_CACHE:-btfhub/.btfhub-http-cache}"
+          } | summary_append
+
+  distros-push:
+    name: Distros - push BTF archive
+    needs: distros-generate
+    if: >-
+      always()
+      && needs.distros-generate.result == 'success'
+      && needs.distros-generate.outputs.has_new_distros_blobs == 'true'
+    permissions:
+      contents: read
+      actions: read # download-artifact only; push uses PAT secret
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Distros - checkout BTFHub (actions + scripts only)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: aquasecurity/btfhub
+          path: ./btfhub
+          sparse-checkout-cone-mode: true
+          sparse-checkout: |
+            .github
+      - name: Distros - checkout BTFHub archive
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: aquasecurity/btfhub-archive
-          token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
           persist-credentials: false
           fetch-depth: 1
           path: ./btfhub-archive
+          sparse-checkout-cone-mode: true
           sparse-checkout: |
             centos
             debian
             fedora
             ol
             ubuntu
-      #
-      - name: Bring current BTFHub Archive
-        run: |
-          cd btfhub
-          make bring
-        shell: bash
-      #
-      - name: Compile BTFHub Tool
-        run: |
-          cd btfhub
-          make
-        shell: bash
-      #
-      - name: Fetch and Generate new BTFs (CENTOS)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d centos
-      # public debian stretch and buster are gone, updates for bullseye only
-      # https://en.wikipedia.org/wiki/Debian_version_history#Release_table
-      - name: Fetch and Generate new BTFs (DEBIAN)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d debian -r bullseye
-      #
-      - name: Fetch and Generate new BTFs (FEDORA)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d fedora
-      #
-      - name: Fetch and Generate new BTFs (ORACLE)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d ol
-      #
-      - name: Fetch and Generate new BTFs (UBUNTU)
-        run: |
-          cd btfhub
-          ./btfhub -workers 6 -d ubuntu
-      #
-      - name: Take new BTFs to BTFHub Archive
-        run: |
-          cd btfhub
-          make take
-      #
-      - name: Check Status
-        run: |
-          cd btfhub-archive
-          git status
-      #
-      - name: Commit and Push to BTFHub Archive
-        uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
+      - name: Distros - download new BTF artifacts
+        id: distros_push_download
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          directory: ./btfhub-archive
-          author_email: 'gg@condado.dev'
-          author_name: 'Geyslan Gregório'
-          github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
-          message: 'Update BTFHUB Archive from BTFHUB'
-          repository: aquasecurity/btfhub-archive
-          branch: main
+          name: distros-new-btfs
+          path: new-btfs
+      - name: Distros - merge into archive checkout
+        id: merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source ./btfhub/.github/scripts/ci-helpers.sh
+          if [[ -f new-btfs/.skip-push ]]; then
+              set_output "skip" "true"
+              echo "No new BTF artifacts to push."
+          else
+              bash ./btfhub/.github/scripts/ci-archive-merge-for-push.sh new-btfs btfhub-archive
+              set_output "skip" "false"
+          fi
+      - name: Distros - commit and push to BTFHub archive
+        id: archive_distros_commit_push
+        if: steps.merge.outputs.skip != 'true'
+        uses: ./btfhub/.github/actions/commit-push-archive
+        with:
+          working-directory: btfhub-archive
+          author_email: gg@condado.dev
+          author_name: Geyslan Gregório
+          github_token: ${{ secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN }}
+      - name: Distros - job summary
+        if: always()
+        shell: bash
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_SERVER_URL: ${{ github.server_url }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_REF_NAME: ${{ github.ref_name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_SHA: ${{ github.sha }}
+          MERGE_SKIP: ${{ steps.merge.outputs.skip }}
+          MERGE_OUTCOME: ${{ steps.merge.outcome }}
+          DL_OUTCOME: ${{ steps.distros_push_download.outcome }}
+          COMMIT_PUSH_OUTCOME: ${{ steps.archive_distros_commit_push.outcome }}
+        run: |
+          set -euo pipefail
+          # shellcheck source=.github/scripts/ci-helpers.sh
+          source ./btfhub/.github/scripts/ci-helpers.sh
+          run_url="${GH_SERVER_URL}/${GH_REPOSITORY}/actions/runs/${GH_RUN_ID}"
+          {
+              echo "## Distros - push BTF archive"
+              echo ""
+              echo "| Key | Value |"
+              echo "| --- | --- |"
+              echo "| Event | \`${GH_EVENT_NAME}\` |"
+              echo "| Ref / SHA | \`${GH_REF_NAME}\` / \`${GH_SHA}\` |"
+              echo "| Run | [${GH_RUN_ID}](${run_url}) |"
+              echo "| Target | \`aquasecurity/btfhub-archive\` (sparse centos/debian/fedora/ol/ubuntu) |"
+              echo "| Step: download artifact | \`${DL_OUTCOME}\` |"
+              echo "| Step: merge | \`${MERGE_OUTCOME}\` |"
+              echo "| Merge output \`skip\` | \`${MERGE_SKIP:-}\` |"
+              echo "| Step: commit && push | \`${COMMIT_PUSH_OUTCOME}\` |"
+          } | summary_append

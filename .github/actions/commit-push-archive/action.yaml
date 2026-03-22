@@ -1,0 +1,98 @@
+name: Commit and push BTFHub archive
+description: |
+  Commit local changes in the archive sparse checkout and push to GitHub.
+
+  Commit runs in a step without the push token; the token is only injected for a minimal follow-up
+  step that runs git push. Push uses HTTPS with Authorization via git --config-env (header passed
+  only for that invocation: GIT_AUTH_HEADER=... git push ..., not export). ::add-mask:: is applied to
+  the token and derived Basic auth material. Prefer a least-privilege PAT or a GitHub App
+  installation token for defense in depth.
+
+inputs:
+  working-directory:
+    description: Path to the archive git working tree (relative to the workspace)
+    required: true
+  author_email:
+    description: Git commit author email
+    required: true
+  author_name:
+    description: Git commit author name
+    required: true
+  commit_message:
+    description: Commit message when there are staged changes
+    required: false
+    default: "Update BTFHUB Archive from BTFHUB"
+  repository:
+    description: Target repository as owner/name
+    required: false
+    default: aquasecurity/btfhub-archive
+  branch:
+    description: Branch to push
+    required: false
+    default: main
+  github_token:
+    description: Token with contents:write on btfhub-archive (e.g. secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Stage and commit
+      id: commit
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        INPUT_AUTHOR_EMAIL: ${{ inputs.author_email }}
+        INPUT_AUTHOR_NAME: ${{ inputs.author_name }}
+        INPUT_COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+        # shellcheck source=.github/scripts/ci-helpers.sh
+        source "${GITHUB_WORKSPACE}/btfhub/.github/scripts/ci-helpers.sh"
+        validate_ref "repository" "${INPUT_REPOSITORY}"
+        validate_relative_workdir "working-directory" "${INPUT_WORKING_DIRECTORY}"
+
+        git config user.email "${INPUT_AUTHOR_EMAIL}"
+        git config user.name "${INPUT_AUTHOR_NAME}"
+        git remote set-url origin "https://github.com/${INPUT_REPOSITORY}.git"
+        git add -A
+        if git diff --cached --quiet; then
+            echo "No changes to commit"
+            set_output "should_push" "false"
+            exit 0
+        fi
+
+        git commit -m "${INPUT_COMMIT_MESSAGE}"
+        set_output "should_push" "true"
+
+    - name: Push to GitHub
+      if: steps.commit.outputs.should_push == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ARCHIVE_PUSH_TOKEN: ${{ inputs.github_token }}
+        INPUT_BRANCH: ${{ inputs.branch }}
+      run: |
+        echo "::add-mask::${ARCHIVE_PUSH_TOKEN}"
+
+        set -euo pipefail
+        set +x
+        # shellcheck source=.github/scripts/ci-helpers.sh
+        source "${GITHUB_WORKSPACE}/btfhub/.github/scripts/ci-helpers.sh"
+        validate_ref "branch" "${INPUT_BRANCH}"
+
+        cleanup() {
+          unset ARCHIVE_PUSH_TOKEN auth header || true
+        }
+        trap cleanup EXIT
+
+        auth="$(printf 'x-access-token:%s' "${ARCHIVE_PUSH_TOKEN}" | base64 | tr -d '\n')"
+        echo "::add-mask::${auth}"
+
+        header="Authorization: Basic ${auth}"
+        echo "::add-mask::${header}"
+
+        GIT_AUTH_HEADER="${header}" \
+            git push --config-env=http.extraHeader=GIT_AUTH_HEADER origin "HEAD:${INPUT_BRANCH}"

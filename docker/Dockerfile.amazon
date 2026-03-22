@@ -1,0 +1,67 @@
+# syntax=docker/dockerfile:1
+
+# Use docker.io explicitly: Podman/Fedora short-name "amazonlinux" maps to public.ecr.aws,
+# where this Docker-Hub manifest digest is not available (manifest unknown).
+FROM docker.io/library/amazonlinux:2023@sha256:162fc5b69e11e81023f83a1ab618b184927ff3002d0852432af3b6ae4a1b5304
+
+# RUN uses POSIX /bin/sh (Docker default). Align with shell style: shfmt -p -i 4 -ci -bn -sr; shellcheck -s sh.
+ARG GO_VERSION=1.26.1
+
+RUN set -eu; \
+    yum install -y yum-utils tar gzip xz clang make cmake git \
+        libdwarf-devel elfutils-libelf-devel elfutils-devel rsync findutils \
+    && yum clean all
+
+RUN yum-config-manager -y --disable amazonlinux-debuginfo || true
+
+RUN set -eu; \
+    printf '%s\n' \
+        '' \
+        '[amzn2-core-debuginfo-x86_64]' \
+        'name=Amazon Linux 2 core repository - debuginfo packages x86_64' \
+        'mirrorlist=http://amazonlinux.default.amazonaws.com/2/core/latest/debuginfo/x86_64/mirror.list' \
+        'enabled=1' \
+        '' \
+        '[amzn2-core-debuginfo-aarch64]' \
+        'name=Amazon Linux 2 core repository - debuginfo packages aarch64' \
+        'mirrorlist=http://amazonlinux.default.amazonaws.com/2/core/latest/debuginfo/aarch64/mirror.list' \
+        'enabled=1' \
+        >> /etc/yum.repos.d/amazonlinux.repo
+
+RUN set -eu; \
+    arch="$(uname -m)"; \
+    case "${arch}" in \
+        x86_64) \
+            goarch=amd64 \
+            ;; \
+        aarch64) \
+            goarch=arm64 \
+            ;; \
+        *) \
+            echo "unsupported arch ${arch}" >&2; \
+            exit 1 \
+            ;; \
+    esac; \
+    curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${goarch}.tar.gz" -o /tmp/go.tgz; \
+    rm -rf /usr/local/go; \
+    tar -C /usr/local -xzf /tmp/go.tgz; \
+    rm /tmp/go.tgz
+
+ENV PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV GOPROXY=https://proxy.golang.org,direct
+
+WORKDIR /btfhub
+COPY . .
+
+RUN git submodule update --init --recursive 3rdparty/dwarves
+
+RUN set -eu; \
+    cd 3rdparty/dwarves \
+    && mkdir -p build \
+    && cd build \
+    && cmake -D__LIB=lib -DDWARF_INCLUDE_DIR=/usr/include .. \
+    && make install \
+    && echo /usr/local/lib > /etc/ld.so.conf.d/pahole.conf \
+    && ldconfig
+
+WORKDIR /btfhub

@@ -1,0 +1,5 @@
+# Speed up `docker build` from repo root (keep .git intact for `git submodule update` in Dockerfiles).
+**/archive/**/*.btf.tar.xz
+**/.btfhub-http-cache
+logs_*
+*.log

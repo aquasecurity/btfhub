@@ -37,7 +37,7 @@ The BTFGEN was later [incorporated](https://lore.kernel.org/bpf/20220215225856.6
     Updating files: 100% (863/863), done.
     ```
 
-2. Enter `btfhub` directory and bring the cloned arquive into the `btfhub` directory:
+2. Enter the `btfhub` directory and bring the cloned **btfhub-archive** into `btfhub`’s `archive/` tree:
 
     ```
     $ cd btfhub ; ls

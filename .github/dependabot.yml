@@ -12,3 +12,8 @@ updates:
       - "/"
     schedule:
       interval: "daily"
+  # docker/Dockerfile.amazon and docker/Dockerfile.distros
+  - package-ecosystem: "docker"
+    directory: "/docker"
+    schedule:
+      interval: "weekly"

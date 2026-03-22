@@ -1,4 +1,6 @@
 name: PR
+permissions:
+  contents: read
 on:
   workflow_dispatch: {}
   pull_request:
@@ -18,60 +20,60 @@ on:
       - "**.h"
       - "**.go"
       - "**.sh"
-      - ".github/workflows/pr.yaml"
+      - ".github/workflows/pr.yml"
 concurrency:
   group: ${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
   verify-and-test:
     name: Verify and Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      #
       - name: Checkout Code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           submodules: true
-      #
       - name: Install Dependencies
         uses: ./.github/actions/build-dependencies
         with:
           from: pr
-      #
-      # CODE VERIFICATION
-      #
       - name: Install staticchecker
-        run: |
-          GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@5af2e5fc3b08ba46027eb48ebddeba34dc0bd02c # 2025.1
-          sudo cp $HOME/go/bin/staticcheck /usr/bin/
         shell: bash
-      #
+        run: |
+          set -euo pipefail
+          GOROOT=/usr/local/go GOPATH="${HOME}/go" \
+              go install honnef.co/go/tools/cmd/staticcheck@ff63afafc529279f454e02f1d060210bd4263951 # v2026.1
+          sudo cp "${HOME}/go/bin/staticcheck" /usr/bin/
       - name: Install goimports-reviser
-        run: |
-          go install github.com/incu6us/goimports-reviser/v3@38044e6cb02749195e5384d9d9535ed00a10fc1f # v3.6.4
-          sudo cp $HOME/go/bin/goimports-reviser /usr/bin/
         shell: bash
-      #
+        run: |
+          set -euo pipefail
+          GOROOT=/usr/local/go GOPATH="${HOME}/go" \
+              go install github.com/incu6us/goimports-reviser/v3@fa5587e51ba33c58734984cb41370a5b2582d5b7 # v3.12.6
+          sudo cp "${HOME}/go/bin/goimports-reviser" /usr/bin/
       - name: Lint
+        shell: bash
         run: |
-          if test -z "$(gofmt -l .)"; then
-            echo "Congrats! There is nothing to fix."
+          set -euo pipefail
+          if [[ -z "$(gofmt -l .)" ]]; then
+              echo "Congrats! There is nothing to fix."
           else
-            echo "The following lines should be fixed."
-            gofmt -s -d .
-            exit 1
+              echo "The following lines should be fixed."
+              gofmt -s -d .
+              exit 1
           fi
-      #
       - name: Check Golang Vet
+        shell: bash
         run: |
+          set -euo pipefail
           make check-vet
-      #
       - name: Check with StaticCheck
+        shell: bash
         run: |
+          set -euo pipefail
           make check-staticcheck
-      #
-      # CODE TESTING
-      #
       - name: Run Unit Tests
+        shell: bash
         run: |
+          set -euo pipefail
           make test-unit

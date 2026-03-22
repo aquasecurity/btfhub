@@ -1,8 +1,13 @@
-#!/bin/bash -e
+#!/bin/bash
+#
+# Build and install pahole from the dwarves git submodule (Debian package workflow).
+#
+
+set -euo pipefail
 
 git submodule update --init --recursive 3rdparty/dwarves
 export DEBIAN_FRONTEND=noninteractive
-rm -f *.deb
+rm -f ./*.deb
 cd ./3rdparty/dwarves
 rm -rf ./debian/
 cp -rfp ../debian.dwarves/ ./debian/
@@ -12,4 +17,4 @@ fakeroot dh binary
 rm -rf ./debian/
 cd ..
 sudo dpkg -i ./pahole*.deb
-rm -f *.deb
+rm -f ./*.deb

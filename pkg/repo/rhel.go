@@ -10,6 +10,7 @@ import (
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/kernel"
 	"github.com/aquasecurity/btfhub/pkg/pkg"
+	"github.com/aquasecurity/btfhub/pkg/preflight"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
@@ -63,6 +64,9 @@ func (d *RHELRepo) GetKernelPackages(
 	for _, pkg := range pkgs {
 		err := processPackage(ctx, pkg, workDir, force, jobChan)
 		if err != nil {
+			if errors.Is(err, preflight.ErrWorkFound) {
+				return err
+			}
 			if errors.Is(err, utils.ErrHasBTF) {
 				log.Printf("INFO: kernel %s has BTF already, skipping later kernels\n", pkg)
 				return nil

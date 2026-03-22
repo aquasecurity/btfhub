@@ -6,7 +6,7 @@ and **BTF** supportability over their kernel versions.
 > It is **highly recommended** that you update to your latest distribution's
 > kernel version in order to use eBPF latest available features.
 
-In the tables bellow you will find BPF, BTF and HUB columns:
+In the tables below you will find BPF, BTF and HUB columns:
 
 * BPF - kernel has support for BPF programs (with or without embedded BTF info)
 * BTF - kernel is compiled with DEBUG_INFO_BTF (/sys/kernel/btf/vmlinux avail)

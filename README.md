@@ -30,6 +30,26 @@ Please note that BTFhub's use is not universally necessary. If your intent is to
 
 This script then uses the BTFhub scripts to [generate tailored BTF files](docs/generating-tailored-btfs.md) that are exceptionally small in size. The result is a streamlined integration process and an efficient method for handling BTF files, demonstrating the power of BTFhub and its scripts when used effectively.
 
+## Running BTFHub locally
+
+### With Docker (any host)
+
+Use the local images that mirror CI: **`docker/run-distros.sh`**, **`docker/run-amazon.sh`**, and **`make docker-*`** (see **[docker/README.md](docker/README.md)** for Podman/Fedora, SELinux mounts, digest-pinned bases, `BTFHUB_HTTP_CACHE` defaults, and CI-style preflight snippets).
+
+### On the host
+
+From the repository root, with dependencies installed (see `Makefile` and `tests/install-deps.sh`), you can generate BTFs the same way CI does:
+
+- **Go**: `go.mod` requires **Go 1.26.1** (CI and `tests/install-deps.sh` use the same). With an older SDK and `GOTOOLCHAIN=local`, run `GOTOOLCHAIN=auto` or install Go 1.26.1+.
+
+- **Normal run** (no `-preflight`, no `-manifest`): `./btfhub -workers N -d <distro> ...` walks upstream metadata, then downloads and generates BTFs for every kernel that is missing from your local `archive/` tree (or passes `-f` to force redo). Nothing is special-cased for CI; **all fetch and generation runs from scratch** relative to what is already on disk under `archive/`.
+
+- **Archive paths vs. `-r`**: Under `archive/`, Ubuntu and Debian use directory names that match the **GitHub blob tree** in [btfhub-archive](https://github.com/aquasecurity/btfhub-archive) (e.g. `ubuntu/20.04/` while `-r focal`; `debian/10/` while `-r buster`). See [docs/btfhub-archive-path-layout.md](docs/btfhub-archive-path-layout.md).
+
+- **`-preflight` / `-manifest`**: **`-preflight`** needs **`-index path.txt`** (archive paths, one per line). Optional **`-manifest-out`** writes JSONL of kernels that would run (all distros); **`-manifest`** in normal mode restricts to that list. **`btfhub -h`** and [`.github/workflows/cron.yml`](.github/workflows/cron.yml) are canonical; a minimal host/container flow is under **Optional: match CI** in [docker/README.md](docker/README.md).
+
+- **`BTFHUB_HTTP_CACHE`**: optional directory for **metadata** HTTP caching (`Packages` indices, repo listings via `utils.Download` / `GetLinks`). **Large package downloads** (`DownloadFile`, e.g. `.rpm`/`.ddeb`) are **not** stored here. Default path when using `docker/run-*.sh` is under the mounted repo - see **Environment** in [docker/README.md](docker/README.md).
+
 ## More Information
 
 - [How to use Pahole to generate BTF information](https://github.com/aquasecurity/btfhub/blob/main/docs/how-to-use-pahole.md)

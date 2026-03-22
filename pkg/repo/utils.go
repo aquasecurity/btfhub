@@ -16,7 +16,9 @@ import (
 
 	"github.com/aquasecurity/btfhub/pkg/job"
 	"github.com/aquasecurity/btfhub/pkg/kernel"
+	"github.com/aquasecurity/btfhub/pkg/manifest"
 	"github.com/aquasecurity/btfhub/pkg/pkg"
+	"github.com/aquasecurity/btfhub/pkg/preflight"
 	"github.com/aquasecurity/btfhub/pkg/utils"
 )
 
@@ -73,6 +75,24 @@ func yumSearch(ctx context.Context, pkg string) (*bytes.Buffer, error) {
 	return stdout, nil
 }
 
+// filterPackagesByManifest keeps only packages whose Filename() appears in the
+// manifest filter (from -manifest). No-op when no filter is set.
+func filterPackagesByManifest(ctx context.Context, distro, release, arch string, pkgs []pkg.Package) []pkg.Package {
+	f := manifest.FilterFromContext(ctx)
+	if f == nil {
+		return pkgs
+	}
+	var filtered []pkg.Package
+	for _, p := range pkgs {
+		if f.Match(distro, release, arch, p.Filename()) {
+			filtered = append(filtered, p)
+		}
+	}
+	log.Printf("DEBUG: after manifest filter, %d packages (distro=%s release=%s arch=%s)\n",
+		len(filtered), distro, release, arch)
+	return filtered
+}
+
 // processPackage creates a kernel extraction job and waits for the reply. It
 // then creates a BTF generation job and sends it to the worker. It returns
 func processPackage(
@@ -94,6 +114,20 @@ func processPackage(
 	if !force && utils.Exists(btfTarPath) {
 		log.Printf("SKIP: %s exists\n", btfTarName)
 		return nil
+	}
+
+	if preflight.FromContext(ctx) {
+		if mw := manifest.WriterFromContext(ctx); mw != nil {
+			t, ok := manifest.TemplateFromContext(ctx)
+			if !ok {
+				return fmt.Errorf("manifest-out set but template missing (internal error)")
+			}
+			if err := mw.Append(t, p.Filename()); err != nil {
+				return fmt.Errorf("manifest append: %w", err)
+			}
+			return nil
+		}
+		return preflight.ErrWorkFound
 	}
 
 	// 1st job: Extract kernel vmlinux file
