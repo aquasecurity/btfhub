@@ -1,31 +1,32 @@
 name: PR
+
+permissions: {}
+
 on:
   workflow_dispatch: {}
+
   pull_request:
     branches:
       - main
     paths:
-      - "!docs/**"
-      - "!archive/**"
-      - "!custom-archive/**"
-      - "!tools/bin/**"
-      - "!**.yaml"
-      - "!**.md"
-      - "!**.txt"
-      - "!**.conf"
-      # override previous rules:
-      - "**.c"
-      - "**.h"
       - "**.go"
       - "**.sh"
-      - ".github/workflows/pr.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "Makefile"
+      - ".github/workflows/pr.yml"
+      - ".github/actions/**"
+
 concurrency:
   group: ${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
 jobs:
   verify-and-test:
     name: Verify and Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # actions/checkout
     steps:
       #
       - name: Checkout Code
@@ -42,7 +43,7 @@ jobs:
       #
       - name: Install staticchecker
         run: |
-          GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@5af2e5fc3b08ba46027eb48ebddeba34dc0bd02c # 2025.1
+          GOROOT=/usr/local/go GOPATH=$HOME/go go install honnef.co/go/tools/cmd/staticcheck@ff63afafc529279f454e02f1d060210bd4263951 # v0.7.0 (2026.1)
           sudo cp $HOME/go/bin/staticcheck /usr/bin/
         shell: bash
       #
@@ -55,23 +56,27 @@ jobs:
       - name: Lint
         run: |
           if test -z "$(gofmt -l .)"; then
-            echo "Congrats! There is nothing to fix."
+              echo "Congrats! There is nothing to fix."
           else
-            echo "The following lines should be fixed."
-            gofmt -s -d .
-            exit 1
+              echo "The following lines should be fixed."
+              gofmt -s -d .
+              exit 1
           fi
+        shell: bash
       #
       - name: Check Golang Vet
         run: |
           make check-vet
+        shell: bash
       #
       - name: Check with StaticCheck
         run: |
           make check-staticcheck
+        shell: bash
       #
       # CODE TESTING
       #
       - name: Run Unit Tests
         run: |
           make test-unit
+        shell: bash
