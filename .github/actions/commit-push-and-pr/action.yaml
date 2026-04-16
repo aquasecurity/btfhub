@@ -25,6 +25,7 @@ runs:
         DIRECTORY: ${{ inputs.directory }}
         REPOSITORY: ${{ inputs.repository }}
         BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+        CRED_CACHE_TIMEOUT: "60"
       run: |
           cd "${DIRECTORY}"
           git add -A
@@ -47,19 +48,18 @@ runs:
           git commit -m "Update BTF archive: ${DISTROS}"
           git remote set-url origin "https://x-access-token@github.com/${REPOSITORY}.git"
 
-          # Push using GIT_ASKPASS to provide the token via a short-lived script on disk (owner r-x only).
-          # The token is never exposed in command-line args for a long period.
-          GIT_ASKPASS_SCRIPT="$(mktemp)"
-          trap 'rm -f "${GIT_ASKPASS_SCRIPT}"' EXIT # ensure cleanup on any circumstances
-          exec {fd}>"${GIT_ASKPASS_SCRIPT}"
-          chmod 500 "${GIT_ASKPASS_SCRIPT}"
-          echo "this should fail" > "${GIT_ASKPASS_SCRIPT}" 2>&1 || echo "direct write blocked"
-          printf '#!/bin/sh\necho "${GH_TOKEN}"' >&${fd}
-          exec {fd}>&-
+          # Store the token in git's in-memory credential cache (Unix socket daemon).
+          # The token never touches disk or command-line args.
+          SOCK_DIR="$(mktemp -d)"
+          CRED_SOCK="${SOCK_DIR}/credential-cache.sock"
+          cleanup_creds() { git credential-cache --socket="${CRED_SOCK}" exit 2>/dev/null; rm -rf "${SOCK_DIR}"; }
+          trap cleanup_creds EXIT
+          git config credential.helper "cache --timeout=${CRED_CACHE_TIMEOUT} --socket=${CRED_SOCK}"
+          printf 'protocol=https\nhost=github.com\nusername=x-access-token\npassword=%s\n\n' "${GH_TOKEN}" \
+              | git credential approve
 
-          GIT_ASKPASS="${GIT_ASKPASS_SCRIPT}" \
-              git push -u origin "${BRANCH}"
-          rm -f "${GIT_ASKPASS_SCRIPT}" # remove it right away
+          git push -u origin "${BRANCH}"
+          cleanup_creds
 
           # gh reads the token from the GH_TOKEN env var (no args, no disk)
           gh pr create \
