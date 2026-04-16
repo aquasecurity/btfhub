@@ -1,0 +1,71 @@
+name: Commit, Push and Create PR
+
+description: Commit changes, push to a timestamped branch, and create a PR. Distro names are auto-detected from changed file paths.
+
+inputs:
+  directory:
+    description: Path to the archive checkout
+    required: true
+  repository:
+    description: Target repository (owner/name)
+    required: true
+  branch-prefix:
+    description: Branch name prefix (e.g. ci/amazon)
+    required: true
+  token:
+    description: GitHub PAT for push and PR creation
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Commit, Push and Create PR
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        DIRECTORY: ${{ inputs.directory }}
+        REPOSITORY: ${{ inputs.repository }}
+        BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+      run: |
+          cd "${DIRECTORY}"
+          git add -A
+          if git diff --cached --quiet; then
+              echo "No changes to commit"
+              exit 0
+          fi
+
+          # Detect distros from changed file paths (top-level directories)
+          DISTROS=$(git diff --cached --name-only | cut -d'/' -f1 | sort -u | paste -sd ', ')
+          echo "Detected distros: ${DISTROS}"
+
+          git diff --cached --stat
+
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+
+          BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d%H%M%S)"
+          git checkout -b "${BRANCH}"
+          git commit -m "Update BTF archive: ${DISTROS}"
+          git remote set-url origin "https://x-access-token@github.com/${REPOSITORY}.git"
+
+          # Push using GIT_ASKPASS to provide the token via a short-lived script on disk (owner r-x only).
+          # The token is never exposed in command-line args for a long period.
+          GIT_ASKPASS_SCRIPT="$(mktemp)"
+          trap 'rm -f "${GIT_ASKPASS_SCRIPT}"' EXIT # ensure cleanup on any circumstances
+          exec {fd}>"${GIT_ASKPASS_SCRIPT}"
+          chmod 500 "${GIT_ASKPASS_SCRIPT}"
+          echo "this should fail" > "${GIT_ASKPASS_SCRIPT}" 2>&1 || echo "direct write blocked"
+          printf '#!/bin/sh\necho "${GH_TOKEN}"' >&${fd}
+          exec {fd}>&-
+
+          GIT_ASKPASS="${GIT_ASKPASS_SCRIPT}" \
+              git push -u origin "${BRANCH}"
+          rm -f "${GIT_ASKPASS_SCRIPT}" # remove it right away
+
+          # gh reads the token from the GH_TOKEN env var (no args, no disk)
+          gh pr create \
+              --repo "${REPOSITORY}" \
+              --base main \
+              --head "${BRANCH}" \
+              --title "Update BTF archive: ${DISTROS}" \
+              --body "Automated update of BTF files for: ${DISTROS}."
+      shell: bash

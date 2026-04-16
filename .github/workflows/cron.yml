@@ -1,32 +1,55 @@
 name: Update BTFHub Archive
-permissions:
-  contents: read
+
+permissions: {}
+
+env:
+  ARCHIVE_REPO: aquasecurity/btfhub-archive
+
 on:
   schedule:
     - cron: "0 1 * * *"
+
   workflow_dispatch: {}
+
 jobs:
   amazon-update:
     name: Update Amazon 2 BTF Archive
     runs-on: ubuntu-2404-4core
     container:
       image: amazonlinux:2023
+    permissions:
+      contents: read # actions/setup-go cache save/restore
     steps:
       - name: Install needed amazon packages
         run: |
-          yum install -y yum-utils tar gzip xz clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel rsync
+          dnf install -y dnf-utils tar gzip xz clang make cmake git libdwarf-devel elfutils-libelf-devel elfutils-devel rsync
         shell: bash
       #
-      - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6.4.0
-        with:
-          go-version: "1.25"
+      - name: Install GitHub CLI
+        run: |
+          dnf install -y 'dnf-command(config-manager)'
+          dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+          dnf install -y gh
+        shell: bash
       #
       - name: Configure Git for HTTPS
         run: |
           # Force Git to use HTTPS instead of SSH to avoid terminal auth prompts
           git config --global url."https://github.com/".insteadOf "git@github.com:"
         shell: bash
+      #
+      - name: Checkout BTFHub
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: aquasecurity/btfhub
+          submodules: recursive
+          path: ./btfhub
+      #
+      - name: Set up Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: "1.25"
+          cache-dependency-path: btfhub/go.sum
       #
       - name: Configure Go Proxy
         run: |
@@ -38,14 +61,14 @@ jobs:
       - name: Setup Amazon Debuginfo Repositories
         run: |
           # disable default debuginfo repositories
-          yum-config-manager -y --disable amazonlinux-debuginfo
+          dnf config-manager --set-disabled amazonlinux-debuginfo
 
           # add Amazon Linux 2 debuginfo repositories
           append_repo() {
-            local arch=$1
-            local repo_name="amzn2-core-debuginfo-$arch"
-            
-            echo "[$repo_name]
+              local arch=$1
+              local repo_name="amzn2-core-debuginfo-$arch"
+
+              echo "[$repo_name]
           name=Amazon Linux 2 core repository - debuginfo packages $arch
           mirrorlist=http://amazonlinux.default.amazonaws.com/2/core/latest/debuginfo/$arch/mirror.list
           enabled=1
@@ -57,13 +80,6 @@ jobs:
           $(append_repo "aarch64")
           EOF
         shell: bash
-      #
-      - name: Checkout BTFHub
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          repository: aquasecurity/btfhub
-          submodules: recursive
-          path: ./btfhub
       #
       - name: Build and install pahole
         run: |
@@ -94,8 +110,7 @@ jobs:
       - name: Checkout BTFHub Archive
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: aquasecurity/btfhub-archive
-          token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
+          repository: ${{ env.ARCHIVE_REPO }}
           persist-credentials: false
           fetch-depth: 1
           path: ./btfhub-archive
@@ -118,24 +133,18 @@ jobs:
           cd btfhub
           make take
       #
-      - name: Check Status
-        run: |
-          cd btfhub-archive
-          git status
-      #
-      - name: Commit and Push to BTFHub Archive
-        uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
+      - name: Commit, Push and Create PR for BTFHub Archive
+        uses: ./btfhub/.github/actions/commit-push-and-pr
         with:
           directory: ./btfhub-archive
-          author_email: 'geyslan@gmail.com'
-          author_name: 'Geyslan Gregório'
-          github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
-          message: 'Update BTFHUB Archive from BTFHUB'
-          repository: aquasecurity/btfhub-archive
-          branch: main
+          repository: ${{ env.ARCHIVE_REPO }}
+          branch-prefix: ci/amazon
+          token: ${{ secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN }}
 
-  build:
-    name: Update BTF Archive
+  other-distros:
+    name: Update Other Distros BTF Archive
+    permissions:
+      contents: read # actions/cache save/restore
     env:
       HOME: "/tmp/root"
       GOPATH: "/tmp/go"
@@ -167,11 +176,25 @@ jobs:
           run-on: ./btfhub
           from: cron
       #
+      - name: Cache Go modules
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ${{ env.GOPATH }}/pkg/mod
+            ${{ env.GOCACHE }}
+          key: ${{ runner.os }}-${{ runner.arch }}-go-graas-${{ hashFiles('**/go.mod') }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-${{ runner.arch }}-go-graas-${{ hashFiles('**/go.mod') }}-
+      #
+      - name: Install GitHub CLI
+        run: |
+          apt-get update
+          apt-get install -y gh
+        shell: bash
+      #
       - name: Checkout BTFHub Archive
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          repository: aquasecurity/btfhub-archive
-          token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
+          repository: ${{ env.ARCHIVE_REPO }}
           persist-credentials: false
           fetch-depth: 1
           path: ./btfhub-archive
@@ -225,18 +248,10 @@ jobs:
           cd btfhub
           make take
       #
-      - name: Check Status
-        run: |
-          cd btfhub-archive
-          git status
-      #
-      - name: Commit and Push to BTFHub Archive
-        uses: actions-js/push@5a7cbd780d82c0c937b5977586e641b2fd94acc5 # v1.5
+      - name: Commit, Push and Create PR for BTFHub Archive
+        uses: ./btfhub/.github/actions/commit-push-and-pr
         with:
           directory: ./btfhub-archive
-          author_email: 'gg@condado.dev'
-          author_name: 'Geyslan Gregório'
-          github_token: ${{ secrets.GEYSLAN_BTFHUB_PAT }}
-          message: 'Update BTFHUB Archive from BTFHUB'
-          repository: aquasecurity/btfhub-archive
-          branch: main
+          repository: ${{ env.ARCHIVE_REPO }}
+          branch-prefix: ci/other-distros
+          token: ${{ secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN }}
