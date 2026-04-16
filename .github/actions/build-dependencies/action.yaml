@@ -1,22 +1,27 @@
 name: Build Dependencies
+
 description: |
   Install build dependencies to test and compile btfhub artifacts
+
 inputs:
   from:
-    description: 'Install dependencies script option (pr, cron)'
+    description: "Install dependencies script option (pr, cron)"
     required: true
-    default: 'pr'
+    default: "pr"
   run-on:
-    description: 'Set working-directory to run'
+    description: "Set working-directory to run"
     required: false
-    default: '.'
+    default: "."
+
 runs:
   using: composite
   steps:
     #
     - name: Install ubuntu packages
+      env:
+        FROM: ${{ inputs.from }}
       run: |
-        ./tests/install-deps.sh ${{ inputs.from }}
+        ./tests/install-deps.sh "${FROM}"
       shell: bash
       working-directory: ${{ inputs.run-on }}
     #
