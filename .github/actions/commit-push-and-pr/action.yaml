@@ -15,6 +15,10 @@ inputs:
   token:
     description: GitHub PAT for push and PR creation
     required: true
+  dry-run:
+    description: "Test credential flow: create a mock change, push, then delete the branch (no PR created)"
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -26,9 +30,17 @@ runs:
         REPOSITORY: ${{ inputs.repository }}
         BRANCH_PREFIX: ${{ inputs.branch-prefix }}
         CRED_CACHE_TIMEOUT: "60"
+        DRY_RUN: ${{ inputs.dry-run }}
       run: |
           cd "${DIRECTORY}"
-          git add -A
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "=== DRY RUN: creating mock change ==="
+              mkdir -p _test
+              date > _test/credential-cache-test.txt
+          fi
+
+          git add --sparse -A
           if git diff --cached --quiet; then
               echo "No changes to commit"
               exit 0
@@ -59,6 +71,15 @@ runs:
               | git credential approve
 
           git push -u origin "${BRANCH}"
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "=== DRY RUN: push succeeded, deleting test branch ==="
+              git push origin --delete "${BRANCH}"
+              echo "=== DRY RUN: credential-cache test passed ==="
+              cleanup_creds
+              exit 0
+          fi
+
           cleanup_creds
 
           # gh reads the token from the GH_TOKEN env var (no args, no disk)
