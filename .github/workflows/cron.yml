@@ -8,7 +8,7 @@ on:
 jobs:
   amazon-update:
     name: Update Amazon 2 BTF Archive
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-2404-4core
     container:
       image: amazonlinux:2023
     steps:
