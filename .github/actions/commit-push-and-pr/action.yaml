@@ -103,6 +103,52 @@ runs:
       run: |
           cd "${DIRECTORY}"
 
+          write_job_summary() {
+              [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] || return 0
+
+              {
+                  echo "## BTFHub Archive Update"
+                  echo ""
+                  case "${SUMMARY_RESULT}" in
+                      no_changes)
+                          echo "**Result:** No changes to commit"
+                          ;;
+                      skipped_duplicate)
+                          echo "**Result:** Skipped — existing PR already covers these files"
+                          ;;
+                      dry_run_ok)
+                          echo "**Result:** Dry run passed"
+                          ;;
+                      pr_created)
+                          echo "**Result:** Pull request created"
+                          ;;
+                  esac
+                  echo ""
+                  echo "| Field | Value |"
+                  echo "| --- | --- |"
+                  echo "| Repository | \`${REPOSITORY}\` |"
+                  [[ -n "${BRANCH_PREFIX:-}" ]] && echo "| Branch prefix | \`${BRANCH_PREFIX}\` |"
+                  [[ -n "${DISTROS:-}" ]] && echo "| Distros | ${DISTROS} |"
+                  [[ -n "${FILE_COUNT:-}" ]] && echo "| Files changed | ${FILE_COUNT} |"
+                  [[ -n "${BOT_LOGIN:-}" ]] && echo "| Author | \`${BOT_LOGIN}\` |"
+                  if [[ -n "${COMMIT_SHA:-}" ]]; then
+                      echo "| Commit | [\`${COMMIT_SHA:0:7}\`](https://github.com/${REPOSITORY}/commit/${COMMIT_SHA}) |"
+                  fi
+                  if [[ -n "${BRANCH:-}" ]]; then
+                      if [[ "${BRANCH_DELETED:-}" == "true" ]]; then
+                          echo "| Branch | \`${BRANCH}\` (deleted) |"
+                      else
+                          echo "| Branch | [\`${BRANCH}\`](https://github.com/${REPOSITORY}/tree/${BRANCH}) |"
+                      fi
+                  fi
+                  [[ -n "${ATTRIBUTED_LOGIN:-}" ]] && echo "| Attributed as | \`${ATTRIBUTED_LOGIN}\` |"
+                  [[ -n "${EXISTING_PR:-}" ]] && echo "| Existing PR | ${EXISTING_PR} |"
+                  [[ -n "${SUPERSEDED_PR:-}" ]] && echo "| Superseded PR | ${SUPERSEDED_PR} |"
+                  [[ -n "${PR_URL:-}" ]] && echo "| Pull request | ${PR_URL} |"
+                  [[ "${DRY_RUN}" == "true" ]] && echo "| Dry run | yes |"
+              } >> "${GITHUB_STEP_SUMMARY}"
+          }
+
           if [[ "${DRY_RUN}" == "true" ]]; then
               echo "=== DRY RUN: creating mock change ==="
               mkdir -p _test
@@ -111,18 +157,21 @@ runs:
 
           git add --sparse -A
           if git diff --cached --quiet; then
-              echo "No changes to commit"
+              SUMMARY_RESULT=no_changes
+              write_job_summary
               exit 0
           fi
 
           # Detect distros from changed file paths (top-level directories)
           DISTROS=$(git diff --cached --name-only | cut -d'/' -f1 | sort -u | paste -sd ', ')
+          FILE_COUNT=$(git diff --cached --name-only | wc -l | tr -d ' ')
           echo "Detected distros: ${DISTROS}"
 
           git diff --cached --stat
 
           # Deduplication: skip or supersede an existing open PR for this branch prefix.
           # (Skipped in dry-run because the mock file would produce a false mismatch.)
+          SUPERSEDED_PR=""
           if [[ "${DRY_RUN}" != "true" ]]; then
               STAGED_FILES=$(git diff --cached --name-only | sort)
 
@@ -145,15 +194,22 @@ runs:
                   NEW_FILES=$(comm -23 <(echo "${STAGED_FILES}") <(echo "${EXISTING_FILES}"))
 
                   if [[ -z "${NEW_FILES}" ]]; then
-                      echo "Staged files are already covered by PR #${EXISTING_PR_NUMBER}. Commenting and skipping."
+                      EXISTING_PR=$(gh pr view "${EXISTING_PR_NUMBER}" \
+                          --repo "${REPOSITORY}" \
+                          --json url --jq .url)
                       gh pr comment "${EXISTING_PR_NUMBER}" \
                           --repo "${REPOSITORY}" \
                           --body "Cron run on $(date -u '+%Y-%m-%d') produced the same set of BTF files already tracked by this PR. No new PR created."
+                      SUMMARY_RESULT=skipped_duplicate
+                      write_job_summary
                       exit 0
                   fi
 
                   NEW_FILES_LIST=$(echo "${NEW_FILES}" | paste -sd ', ')
                   echo "Additional files vs PR #${EXISTING_PR_NUMBER}: ${NEW_FILES_LIST}. Closing old PR."
+                  SUPERSEDED_PR=$(gh pr view "${EXISTING_PR_NUMBER}" \
+                      --repo "${REPOSITORY}" \
+                      --json url --jq .url)
                   gh pr comment "${EXISTING_PR_NUMBER}" \
                       --repo "${REPOSITORY}" \
                       --body "Closing in favour of a new PR that includes additional BTF files not present here: \`${NEW_FILES_LIST}\`."
@@ -184,13 +240,6 @@ runs:
           if [[ "$(git config user.email)" != "${EXPECTED_EMAIL}" ]]; then
               echo "git user.email mismatch: $(git config user.email) != ${EXPECTED_EMAIL}" >&2
               exit 1
-          fi
-
-          if [[ "${DRY_RUN}" == "true" ]]; then
-              echo "=== DRY RUN: commit identity ==="
-              echo "BOT_LOGIN=$(git config user.name)"
-              echo "BOT_ID=${BOT_ID}"
-              echo "BOT_EMAIL=$(git config user.email)"
           fi
 
           BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d%H%M%S)"
@@ -229,28 +278,24 @@ runs:
           fi
 
           if [[ "${DRY_RUN}" == "true" ]]; then
-              echo "=== DRY RUN: commit attribution verified ==="
-              echo "COMMIT_SHA=${COMMIT_SHA}"
-              echo "ATTRIBUTED_LOGIN=${ATTRIBUTED_LOGIN:-<unlinked>}"
-              echo "AUTHOR_NAME=${AUTHOR_NAME}"
-              echo "AUTHOR_EMAIL=${AUTHOR_EMAIL}"
-          fi
-
-          if [[ "${DRY_RUN}" == "true" ]]; then
-              echo "=== DRY RUN: push succeeded, deleting test branch ==="
               git push origin --delete "${BRANCH}"
-              echo "=== DRY RUN: credential-cache test passed ==="
+              BRANCH_DELETED=true
               cleanup_creds
+              SUMMARY_RESULT=dry_run_ok
+              write_job_summary
               exit 0
           fi
 
           cleanup_creds
 
-          # gh reads the token from the GH_TOKEN env var (no args, no disk)
-          gh pr create \
+          PR_URL=$(gh pr create \
               --repo "${REPOSITORY}" \
               --base main \
               --head "${BRANCH}" \
               --title "Update BTF archive: ${DISTROS}" \
-              --body "Automated update of BTF files for: ${DISTROS}."
+              --body "Automated update of BTF files for: ${DISTROS}." \
+              --json url --jq .url)
+
+          SUMMARY_RESULT=pr_created
+          write_job_summary
       shell: bash
