@@ -4,16 +4,19 @@ description: Commit changes, push to a timestamped branch, and create a PR. Dist
 
 inputs:
   directory:
-    description: Path to the archive checkout
+    description: Path to the archive checkout (relative, inside workspace, git repo)
     required: true
   repository:
     description: Target repository (owner/name)
     required: true
   branch-prefix:
-    description: Branch name prefix (e.g. ci/amazon)
+    description: Branch name prefix (must match ci/<name>, name = lowercase letters, digits, hyphens)
     required: true
-  token:
-    description: GitHub PAT for push and PR creation
+  app-client-id:
+    description: GitHub App client ID for push and PR creation
+    required: true
+  app-private-key:
+    description: GitHub App private key for push and PR creation
     required: true
   dry-run:
     description: "Test credential flow: create a mock change, push, then delete the branch (no PR created)"
@@ -23,12 +26,78 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Commit, Push and Create PR
+    - name: Parse and validate inputs
+      id: inputs
+      shell: bash
+      run: |
+          owner="${REPOSITORY%%/*}"
+          if [[ -z "${owner}" || "${owner}" == "${REPOSITORY}" ]]; then
+              echo "repository must be owner/name" >&2
+              exit 1
+          fi
+
+          if [[ ! "${BRANCH_PREFIX}" =~ ^ci/[a-z0-9-]+$ ]]; then
+              echo "branch-prefix must match ci/<name> (name: lowercase ASCII letters, digits, hyphens)" >&2
+              exit 1
+          fi
+
+          if [[ "${DIRECTORY}" == /* ]]; then
+              echo "directory must be a relative path" >&2
+              exit 1
+          fi
+
+          if [[ "${DIRECTORY}" == *..* ]]; then
+              echo "directory must not contain .." >&2
+              exit 1
+          fi
+
+          if [[ ! "${DIRECTORY}" =~ ^(\./)?[a-zA-Z0-9._-]+(/[a-zA-Z0-9._-]+)*$ ]]; then
+              echo "directory must be a relative path of allowed ASCII segments (letters, digits, ., _, -)" >&2
+              exit 1
+          fi
+
+          resolved="$(realpath -e "${GITHUB_WORKSPACE}/${DIRECTORY#./}")"
+          case "${resolved}" in
+              "${GITHUB_WORKSPACE}"|"${GITHUB_WORKSPACE}"/*) ;;
+              *)
+                  echo "directory must stay inside the workspace" >&2
+                  exit 1
+                  ;;
+          esac
+
+          if [[ ! -d "${resolved}/.git" ]]; then
+              echo "directory must be an existing git checkout" >&2
+              exit 1
+          fi
+
+          {
+              echo "owner=${owner}"
+              echo "branch-prefix=${BRANCH_PREFIX}"
+              echo "directory=${resolved}"
+          } >> "${GITHUB_OUTPUT}"
       env:
-        GH_TOKEN: ${{ inputs.token }}
-        DIRECTORY: ${{ inputs.directory }}
         REPOSITORY: ${{ inputs.repository }}
         BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+        DIRECTORY: ${{ inputs.directory }}
+
+    - name: Generate GitHub App token
+      id: app-token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ steps.inputs.outputs.owner }}
+        repositories: ${{ inputs.repository }}
+        permission-contents: write
+        permission-pull-requests: write
+
+    - name: Commit, Push and Create PR
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        DIRECTORY: ${{ steps.inputs.outputs.directory }}
+        REPOSITORY: ${{ inputs.repository }}
+        BRANCH_PREFIX: ${{ steps.inputs.outputs.branch-prefix }}
         CRED_CACHE_TIMEOUT: "60"
         DRY_RUN: ${{ inputs.dry-run }}
       run: |
@@ -52,8 +121,37 @@ runs:
 
           git diff --cached --stat
 
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git config user.name 'github-actions[bot]'
+          mapfile -t _bot < <(gh api "/users/${APP_SLUG}[bot]" --jq '[.type, .login, (.id|tostring)] | .[]')
+          if [[ ${#_bot[@]} -ne 3 ]]; then
+              echo "Failed to resolve GitHub App bot user for ${APP_SLUG}[bot]" >&2
+              exit 1
+          fi
+          BOT_TYPE="${_bot[0]}"
+          BOT_LOGIN="${_bot[1]}"
+          BOT_ID="${_bot[2]}"
+          EXPECTED_EMAIL="${BOT_ID}+${BOT_LOGIN}@users.noreply.github.com"
+          git config user.name "${BOT_LOGIN}"
+          git config user.email "${EXPECTED_EMAIL}"
+
+          if [[ "${BOT_TYPE}" != "Bot" ]]; then
+              echo "GitHub App bot user type is ${BOT_TYPE}, expected Bot" >&2
+              exit 1
+          fi
+          if [[ "$(git config user.name)" != "${BOT_LOGIN}" ]]; then
+              echo "git user.name mismatch: $(git config user.name) != ${BOT_LOGIN}" >&2
+              exit 1
+          fi
+          if [[ "$(git config user.email)" != "${EXPECTED_EMAIL}" ]]; then
+              echo "git user.email mismatch: $(git config user.email) != ${EXPECTED_EMAIL}" >&2
+              exit 1
+          fi
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "=== DRY RUN: commit identity ==="
+              echo "BOT_LOGIN=$(git config user.name)"
+              echo "BOT_ID=${BOT_ID}"
+              echo "BOT_EMAIL=$(git config user.email)"
+          fi
 
           BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d%H%M%S)"
           git checkout -b "${BRANCH}"
@@ -71,6 +169,32 @@ runs:
               | git credential approve
 
           git push -u origin "${BRANCH}"
+
+          COMMIT_SHA=$(git rev-parse HEAD)
+          mapfile -t _commit < <(gh api "/repos/${REPOSITORY}/commits/${COMMIT_SHA}" \
+              --jq '[.author.login // "", .commit.author.name, .commit.author.email] | .[]')
+          ATTRIBUTED_LOGIN="${_commit[0]}"
+          AUTHOR_NAME="${_commit[1]}"
+          AUTHOR_EMAIL="${_commit[2]}"
+
+          if [[ "${AUTHOR_NAME}" != "${BOT_LOGIN}" || "${AUTHOR_EMAIL}" != "${EXPECTED_EMAIL}" ]]; then
+              echo "Commit attribution mismatch:" >&2
+              echo "  expected name=${BOT_LOGIN} email=${EXPECTED_EMAIL}" >&2
+              echo "  got name=${AUTHOR_NAME} email=${AUTHOR_EMAIL}" >&2
+              exit 1
+          fi
+          if [[ -n "${ATTRIBUTED_LOGIN}" && "${ATTRIBUTED_LOGIN}" != "${BOT_LOGIN}" ]]; then
+              echo "Linked author login mismatch: ${ATTRIBUTED_LOGIN} != ${BOT_LOGIN}" >&2
+              exit 1
+          fi
+
+          if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "=== DRY RUN: commit attribution verified ==="
+              echo "COMMIT_SHA=${COMMIT_SHA}"
+              echo "ATTRIBUTED_LOGIN=${ATTRIBUTED_LOGIN:-<unlinked>}"
+              echo "AUTHOR_NAME=${AUTHOR_NAME}"
+              echo "AUTHOR_EMAIL=${AUTHOR_EMAIL}"
+          fi
 
           if [[ "${DRY_RUN}" == "true" ]]; then
               echo "=== DRY RUN: push succeeded, deleting test branch ==="
