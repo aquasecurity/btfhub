@@ -121,6 +121,46 @@ runs:
 
           git diff --cached --stat
 
+          # Deduplication: skip or supersede an existing open PR for this branch prefix.
+          # (Skipped in dry-run because the mock file would produce a false mismatch.)
+          if [[ "${DRY_RUN}" != "true" ]]; then
+              STAGED_FILES=$(git diff --cached --name-only | sort)
+
+              EXISTING_PR_NUMBER=$(gh pr list \
+                  --repo "${REPOSITORY}" \
+                  --base main \
+                  --state open \
+                  --json number,headRefName \
+                  --jq "[.[] | select(.headRefName | startswith(\"${BRANCH_PREFIX}-\"))] | first | .number // empty")
+
+              if [[ -n "${EXISTING_PR_NUMBER}" ]]; then
+                  echo "Found existing open PR #${EXISTING_PR_NUMBER} with prefix ${BRANCH_PREFIX}"
+
+                  EXISTING_FILES=$(gh pr view "${EXISTING_PR_NUMBER}" \
+                      --repo "${REPOSITORY}" \
+                      --json files \
+                      --jq '.files[].path' | sort)
+
+                  # Lines present in STAGED_FILES but absent from EXISTING_FILES
+                  NEW_FILES=$(comm -23 <(echo "${STAGED_FILES}") <(echo "${EXISTING_FILES}"))
+
+                  if [[ -z "${NEW_FILES}" ]]; then
+                      echo "Staged files are already covered by PR #${EXISTING_PR_NUMBER}. Commenting and skipping."
+                      gh pr comment "${EXISTING_PR_NUMBER}" \
+                          --repo "${REPOSITORY}" \
+                          --body "Cron run on $(date -u '+%Y-%m-%d') produced the same set of BTF files already tracked by this PR. No new PR created."
+                      exit 0
+                  fi
+
+                  NEW_FILES_LIST=$(echo "${NEW_FILES}" | paste -sd ', ')
+                  echo "Additional files vs PR #${EXISTING_PR_NUMBER}: ${NEW_FILES_LIST}. Closing old PR."
+                  gh pr comment "${EXISTING_PR_NUMBER}" \
+                      --repo "${REPOSITORY}" \
+                      --body "Closing in favour of a new PR that includes additional BTF files not present here: \`${NEW_FILES_LIST}\`."
+                  gh pr close "${EXISTING_PR_NUMBER}" --repo "${REPOSITORY}"
+              fi
+          fi
+
           mapfile -t _bot < <(gh api "/users/${APP_SLUG}[bot]" --jq '[.type, .login, (.id|tostring)] | .[]')
           if [[ ${#_bot[@]} -ne 3 ]]; then
               echo "Failed to resolve GitHub App bot user for ${APP_SLUG}[bot]" >&2
