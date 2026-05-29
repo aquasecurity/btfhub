@@ -152,7 +152,8 @@ jobs:
           directory: ./btfhub-archive
           repository: ${{ env.ARCHIVE_REPO }}
           branch-prefix: ci/amazon
-          token: ${{ secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN }}
+          app-client-id: ${{ secrets.REPO_BTFHUB_ARCHIVE_WRITE_GH_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.REPO_BTFHUB_ARCHIVE_WRITE_GH_APP_PRIVATE_KEY }}
           dry-run: ${{ inputs.dry-run && 'true' || 'false' }}
 
   other-distros:
@@ -290,5 +291,6 @@ jobs:
           directory: ./btfhub-archive
           repository: ${{ env.ARCHIVE_REPO }}
           branch-prefix: ci/other-distros
-          token: ${{ secrets.AQUASECURITY_BTFHUB_ARCHIVE_TOKEN }}
+          app-client-id: ${{ secrets.REPO_BTFHUB_ARCHIVE_WRITE_GH_APP_CLIENT_ID }}
+          app-private-key: ${{ secrets.REPO_BTFHUB_ARCHIVE_WRITE_GH_APP_PRIVATE_KEY }}
           dry-run: ${{ inputs.dry-run && 'true' || 'false' }}
