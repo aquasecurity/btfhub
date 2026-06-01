@@ -146,7 +146,7 @@ runs:
                   [[ -n "${SUPERSEDED_PR:-}" ]] && echo "| Superseded PR | ${SUPERSEDED_PR} |"
                   [[ -n "${PR_URL:-}" ]] && echo "| Pull request | ${PR_URL} |"
                   [[ "${DRY_RUN}" == "true" ]] && echo "| Dry run | yes |"
-              } >> "${GITHUB_STEP_SUMMARY}"
+              } >> "${GITHUB_STEP_SUMMARY}" 2>/dev/null || true
           }
 
           if [[ "${DRY_RUN}" == "true" ]]; then
@@ -157,6 +157,7 @@ runs:
 
           git add --sparse -A
           if git diff --cached --quiet; then
+              echo "No changes to commit"
               SUMMARY_RESULT=no_changes
               write_job_summary
               exit 0
@@ -288,12 +289,15 @@ runs:
 
           cleanup_creds
 
-          PR_URL=$(gh pr create \
+          gh pr create \
               --repo "${REPOSITORY}" \
               --base main \
               --head "${BRANCH}" \
               --title "Update BTF archive: ${DISTROS}" \
-              --body "Automated update of BTF files for: ${DISTROS}." \
+              --body "Automated update of BTF files for: ${DISTROS}."
+
+          PR_URL=$(gh pr view "${BRANCH}" \
+              --repo "${REPOSITORY}" \
               --json url --jq .url)
 
           SUMMARY_RESULT=pr_created
