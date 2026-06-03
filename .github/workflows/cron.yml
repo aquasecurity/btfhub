@@ -45,7 +45,7 @@ jobs:
         shell: bash
       #
       - name: Checkout BTFHub
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: aquasecurity/btfhub
           submodules: ${{ inputs.dry-run != true && 'recursive' || 'false' }}
@@ -119,7 +119,7 @@ jobs:
         shell: bash
       #
       - name: Checkout BTFHub Archive
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: ${{ env.ARCHIVE_REPO }}
           persist-credentials: false
@@ -181,7 +181,7 @@ jobs:
         shell: bash
       #
       - name: Checkout BTFHub
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: aquasecurity/btfhub
           path: ./btfhub
@@ -211,7 +211,7 @@ jobs:
       #
       - name: Checkout BTFHub Archive
         if: inputs.dry-run != true
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: ${{ env.ARCHIVE_REPO }}
           persist-credentials: false
@@ -226,7 +226,7 @@ jobs:
       #
       - name: Checkout BTFHub Archive (dry-run)
         if: inputs.dry-run == true
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: ${{ env.ARCHIVE_REPO }}
           persist-credentials: false
