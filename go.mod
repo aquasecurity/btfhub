@@ -9,10 +9,15 @@ require (
 	github.com/therootcompany/xz v1.0.1
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/sync v0.21.0
-	pault.ag/go/debian v0.20.0
+	pault.ag/go/debian v0.21.0
 )
 
-require github.com/klauspost/compress v1.18.0 // indirect
+require (
+	github.com/ProtonMail/go-crypto v1.4.1 // indirect
+	github.com/cloudflare/circl v1.6.2 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1
