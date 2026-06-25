@@ -1,0 +1,33 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuring-dependabot-version-updates#disabling-dependabot-version-updates
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker"
+    directories:
+      - "/**"
+    schedule:
+      interval: "monthly"
+    groups:
+      docker:
+        patterns:
+          - "*"
+
+  # open-pull-requests-limit: 0 disables version update PRs.
+  # Security alerts and updates are configured separately in repo settings.
+  - package-ecosystem: "gomod"
+    directories:
+      - "/**"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
