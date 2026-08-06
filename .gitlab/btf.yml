@@ -27,9 +27,9 @@
     - !reference [.catalog_checkout]
     - |
       if [[ "${CI_COMMIT_BRANCH}" == "main" && "${CI_PIPELINE_SOURCE}" == "schedule" ]] || [[ "${MANUAL_GENERATE}" == "yes" ]]; then
-        ./btfhub -d "${DISTRO}" -r "${RELEASE}" -a "${BTF_ARCH}" -s3-bucket dd-agent -s3-prefix btfs -hash-dir .tmp/hash -catalog-json rc-employee-configurations/configs/BTF_DD/btfs.json
+        ./btfhub -d "${DISTRO}" -r "${RELEASE}" -a "${BTF_ARCH}" -s3-bucket dd-agent -s3-prefix btfs -hash-dir .tmp/hash -catalog-json rc-employee-configurations/configs/BTF_DD/btfs.prod.json
       else
-        ./btfhub -d "${DISTRO}" -r "${RELEASE}" -a "${BTF_ARCH}" -hash-dir .tmp/hash -catalog-json rc-employee-configurations/configs/BTF_DD/btfs.json
+        ./btfhub -d "${DISTRO}" -r "${RELEASE}" -a "${BTF_ARCH}" -hash-dir .tmp/hash -catalog-json rc-employee-configurations/configs/BTF_DD/btfs.prod.json
       fi
     - cd archive
     - git status
