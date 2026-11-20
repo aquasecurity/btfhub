@@ -25,11 +25,40 @@ runs:
       shell: bash
       working-directory: ${{ inputs.run-on }}
     #
+    # The pahole package only changes with the dwarves submodule, its Debian
+    # packaging or the system it is built on, so it is built once for each
+    - name: Find the pahole package cache key
+      id: pahole
+      run: |
+        . /etc/os-release
+        packaging="$(find 3rdparty/debian.dwarves 3rdparty/pahole.sh -type f | sort | xargs sha256sum | sha256sum | cut -c1-16)"
+        echo "key=pahole-deb-${ID}-${VERSION_ID}-$(uname -m)-$(git rev-parse HEAD:3rdparty/dwarves)-${packaging}" >> "${GITHUB_OUTPUT}"
+      shell: bash
+      working-directory: ${{ inputs.run-on }}
+    #
+    - name: Restore the pahole package
+      id: pahole-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.run-on }}/3rdparty/.pahole-deb
+        key: ${{ steps.pahole.outputs.key }}
+    #
     - name: Install pahole
+      env:
+        PAHOLE_DEB_CACHE: 3rdparty/.pahole-deb
       run: |
         ./3rdparty/pahole.sh
       shell: bash
       working-directory: ${{ inputs.run-on }}
+    #
+    # Only runs on main save the package, which is what the nightly restores.
+    # Pull requests and other branches build it each time and save nothing
+    - name: Save the pahole package
+      if: steps.pahole-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ inputs.run-on }}/3rdparty/.pahole-deb
+        key: ${{ steps.pahole.outputs.key }}
     #
     # - name: Install bpftool
     #   run: |
