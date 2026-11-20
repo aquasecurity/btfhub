@@ -70,7 +70,7 @@ Look at the following example:
 
 ![](btfgen-internals/image03.png)
 
-The image above is an example of how the eBPF object of the [BTFHUB example](https://github.com/aquasecurity/btfhub/tree/main/example) looks like. Taking a look at the [source code](https://github.com/aquasecurity/btfhub/blob/main/example/example.bpf.c) you will see we have 2 *inlined functions* and 1 *non-inlined one*. As the reader probably knows, the inline function will become part of its callee (the compiler won't arrange the stack with a new frame), so at the end we will have only 1 eBPF program:
+The image above is an example of how the eBPF object of the [BTFHUB example](https://github.com/aquasecurity/btfhub/tree/48d0cd533ae2693e3b91892cdcf102ad1979d73c/example), as it was when this document was written, looks like. Taking a look at its [source code](https://github.com/aquasecurity/btfhub/blob/48d0cd533ae2693e3b91892cdcf102ad1979d73c/example/example.bpf.c) you will see we have 2 *inlined functions* and 1 *non-inlined one*. As the reader probably knows, the inline function will become part of its callee (the compiler won't arrange the stack with a new frame), so at the end we will have only 1 eBPF program:
 
 1. a kprobe eBPF program triggered by the `do_sys_openat2` kernel function.
 
@@ -980,12 +980,12 @@ or
 2. To clone **BTFHUB** and use **btfgen** to generate **ALL BTF files** for the kernels *you would like to support for your app*. Example:
 
 	```
-	[user@host:~/.../aquasec-btfhub/tools][main]$ ./btfgen.sh ~/aquasec-tracee/tracee-ebpf/dist/tracee.bpf.core.o
+	$ ./tools/btfgen.sh -a x86_64 -o ~/tracee/dist/tracee.bpf.core.o -j $(nproc)
 	```
 
-If you visit the [tools](https://github.com/aquasecurity/btfhub/tree/main/tools) directory within [BTFHUB](https://github.com/aquasecurity/btfhub) you will see instructions on how to use a non-upstreamed (and statically compiled version) of **btfgen** (the **BTF generator**).
+**btfgen** is now part of bpftool, as `bpftool gen min_core_btf` (Linux 5.18 and later), and [btfgen.sh](https://github.com/aquasecurity/btfhub/blob/main/tools/btfgen.sh) runs it for every kernel of the given architecture in the archive. [Generating tailored BTFs](generating-tailored-btfs.md) explains how to set it up.
 
-[btfgen.sh](https://github.com/aquasecurity/btfhub/blob/main/tools/btfgen.sh) script will generate **multiple BTF files and symlinks** at `tools/output/{centos,fedora,ubuntu}/` containing ONLY the types being used by the given eBPF object (`tracee.bpf.core.o` in this example), with the relocations for each specific kernel version already recalculated.
+The script generates one BTF file per kernel at `custom-archive/<distro>/<release>/<arch>/<kernel>.btf`, containing ONLY the types being used by the given eBPF object (`tracee.bpf.core.o` in this example), with the relocations for each specific kernel version already recalculated. The [example](https://github.com/aquasecurity/btfhub/tree/main/example) shows how a libbpf loader takes such a file.
 
 Then you can execute your application by loading the correspondent - to your running kernel - partial generated BTF file:
 
