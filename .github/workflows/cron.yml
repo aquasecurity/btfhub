@@ -96,7 +96,7 @@ jobs:
           cd btfhub/3rdparty/dwarves
           mkdir build
           cd build
-          cmake -D__LIB=lib -DDWARF_INCLUDE_DIR=/usr/include ..
+          cmake -DCMAKE_INSTALL_LIBDIR=lib -DDWARF_INCLUDE_DIR=/usr/include ..
           make install
           echo "/usr/local/lib" >> /etc/ld.so.conf.d/pahole.conf
           ldconfig

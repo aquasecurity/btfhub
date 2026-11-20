@@ -21,3 +21,4 @@ usr/bin/ctracer
 usr/bin/pfunct
 usr/share/dwarves/runtime
 usr/share/man/man1/pahole.1
+usr/share/man/man1/pfunct.1
