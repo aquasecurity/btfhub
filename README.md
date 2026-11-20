@@ -30,6 +30,8 @@ Please note that BTFhub's use is not universally necessary. If your intent is to
 
 This script then uses the BTFhub scripts to [generate tailored BTF files](docs/generating-tailored-btfs.md) that are exceptionally small in size. The result is a streamlined integration process and an efficient method for handling BTF files, demonstrating the power of BTFhub and its scripts when used effectively.
 
+The [example](example) shows how a libbpf loader takes a BTFhub file, complete or tailored, on a kernel without BTF.
+
 ## More Information
 
 - [How to use Pahole to generate BTF information](https://github.com/aquasecurity/btfhub/blob/main/docs/how-to-use-pahole.md)
