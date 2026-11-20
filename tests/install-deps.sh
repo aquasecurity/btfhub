@@ -329,8 +329,7 @@ wait_for_apt_locks
 apt-get install -y \
     bsdutils build-essential pkgconf \
     zlib1g-dev libelf-dev \
-    software-properties-common \
-    devscripts ubuntu-dev-tools
+    software-properties-common
 
 # Install dependencies based on the origin
 

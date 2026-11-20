@@ -7,3 +7,5 @@ custom-archive/*
 .check*
 # JetBrains
 .idea/
+# pahole package kept by 3rdparty/pahole.sh with PAHOLE_DEB_CACHE
+3rdparty/.pahole-deb/
