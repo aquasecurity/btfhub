@@ -1,0 +1,5 @@
+example
+example.bpf.o
+vmlinux.h
+*.btf
+*.btf.tar.xz
