@@ -22,6 +22,20 @@ type BTFGenerationJob struct {
 // the vmlinux file.
 func (job *BTFGenerationJob) Do(ctx context.Context) error {
 
+	// Give the kABI hide members of some distribution kernels the same name
+	// in every compilation unit, so BTF deduplication can merge the structs
+	// holding them
+
+	changed, found, err := NormalizeKABINames(job.VmlinuxPath)
+	switch {
+	case errors.Is(err, errCompressedDebugStr):
+		log.Printf("INFO: %s: %s, kABI names not normalized\n", job.VmlinuxPath, err)
+	case err != nil:
+		return fmt.Errorf("kabi names: %s", err)
+	case changed > 0:
+		log.Printf("DEBUG: normalized %d kABI names in %s\n", changed, job.VmlinuxPath)
+	}
+
 	// Generate the BTF file from the vmlinux file
 
 	log.Printf("DEBUG: generating BTF from %s\n", job.VmlinuxPath)
@@ -36,6 +50,21 @@ func (job *BTFGenerationJob) Do(ctx context.Context) error {
 	}
 
 	log.Printf("DEBUG: finished generating BTF from %s in %s\n", job.VmlinuxPath, time.Since(btfGenStart))
+
+	// Give each normalized kABI hide member a name unique in its struct, so C
+	// headers generated from the BTF compile. Only BTFs from a vmlinux with
+	// normalized names, in this run or in an earlier one that failed later
+	// and kept the vmlinux, are parsed here: the others are left as pahole
+	// wrote them.
+
+	if found > 0 {
+		renamed, err := RenameKABIHideMembers(job.BTFPath)
+		if err != nil {
+			os.Remove(job.BTFPath)
+			return fmt.Errorf("kabi members: %s", err)
+		}
+		log.Printf("DEBUG: renamed %d kABI hide members in %s\n", renamed, job.BTFPath)
+	}
 
 	// Compress BTF file into a .tar.xz file
 
