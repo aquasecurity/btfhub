@@ -1,3 +1,9 @@
+dwarves (1.32-0ubuntu99~202611201200) noble; urgency=medium
+
+  * Upstream release: v1.32
+
+ -- Geyslan Gregório <geyslan.gregorio@aquasec.com>  Fri, 20 Nov 2026 12:00:00 +0000
+
 dwarves (1.25-0ubuntu99~202307241125) jammy; urgency=medium
 
   * Backport from upstream: v1.24-68-g0a1944b4
