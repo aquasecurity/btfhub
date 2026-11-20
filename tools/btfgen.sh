@@ -116,8 +116,10 @@ function ctrlc() {
 trap ctrlc SIGINT
 trap ctrlc SIGTERM
 
-# Jobs extract and minimize inside their own directory under work_dir
+# Jobs extract and minimize inside their own directory under work_dir, and
+# record there which sources they minimized (sources/<sha256>/).
 work_dir="$(mktemp -d)" || exit 1
+mkdir "${work_dir}/sources"
 trap 'rm -rf "${work_dir}"' EXIT
 
 # clean custom-archive directory
@@ -134,6 +136,8 @@ process_btf_file() {
     local out_dir
     local extracted
     local temp_dir
+    local hash
+    local source_dir
 
     dir="$(dirname "${file}")"
     dir=${dir/\.\/archive\//}
@@ -153,6 +157,19 @@ process_btf_file() {
 
     mkdir -p "${out_dir}"
 
+    # Many kernels share the same BTF (the same kernel in two releases, or
+    # releases that did not change any type). Minimize each distinct BTF
+    # once: the first job to create its source directory minimizes it, and
+    # the others are listed there, to get a copy once all jobs are done.
+    hash="$(sha256sum "${temp_dir}/${extracted}" | cut -d' ' -f1)"
+    source_dir="${work_dir}/sources/${hash}"
+    if ! mkdir "${source_dir}" 2> /dev/null; then
+        printf '%s\n' "${out_dir}/${extracted}" >> "${source_dir}/copies"
+        rm -rf "${temp_dir}"
+        printf "[SAME] %s\n" "${extracted}"
+        return 0
+    fi
+
     # Generate minimized BTF file
     # shellcheck disable=SC2086
     "${btfgen}" gen min_core_btf "${temp_dir}/${extracted}" "${out_dir}/${extracted}" ${obj_cmdline}
@@ -161,6 +178,7 @@ process_btf_file() {
     rm -rf "${temp_dir}"
 
     if [[ ${btfgen_ret} -eq 0 ]]; then
+        printf '%s\n' "${out_dir}/${extracted}" > "${source_dir}/output"
         printf "[SUCCESS] %s\n" "${extracted}"
         return 0
     else
@@ -212,10 +230,11 @@ for file in "${btf_files[@]}"; do
         wait -n
         exit_code=$?
         ((job_count--))
-        ((completed_jobs++))
 
-        # Track failed jobs
-        if [[ ${exit_code} -ne 0 ]]; then
+        # Track completed and failed jobs
+        if [[ ${exit_code} -eq 0 ]]; then
+            ((completed_jobs++))
+        else
             ((failed_jobs++))
         fi
     done
@@ -233,11 +252,30 @@ while [[ ${job_count} -gt 0 ]]; do
     wait -n
     exit_code=$?
     ((job_count--))
-    ((completed_jobs++))
 
-    if [[ ${exit_code} -ne 0 ]]; then
+    if [[ ${exit_code} -eq 0 ]]; then
+        ((completed_jobs++))
+    else
         ((failed_jobs++))
     fi
+done
+
+# Copy each minimized BTF to the kernels that share its source
+copied_files=0
+for source_dir in "${work_dir}"/sources/*; do
+    [[ -f "${source_dir}/copies" ]] || continue
+    output=""
+    [[ -f "${source_dir}/output" ]] && output="$(< "${source_dir}/output")"
+    while IFS= read -r copy; do
+        if [[ -n "${output}" ]] && cp "${output}" "${copy}"; then
+            ((copied_files++))
+        else
+            # its job found the source taken and completed: count it as failed
+            printf "[FAIL] %s (same BTF as a kernel that failed)\n" "$(basename "${copy}")"
+            completed_jobs=$((completed_jobs - 1))
+            ((failed_jobs++))
+        fi
+    done < "${source_dir}/copies"
 done
 
 # Final summary with timing
@@ -247,7 +285,7 @@ average_rate=$((total_files * 60 / (total_elapsed + 1)))
 
 echo -e "\n\n🎉 BTF processing completed!"
 echo "📊 Total files: ${total_files}"
-echo "✅ Completed: ${completed_jobs}"
+echo "✅ Completed: ${completed_jobs} (${copied_files} copied from a kernel with the same BTF)"
 echo "❌ Failed jobs: ${failed_jobs}"
 echo "⚙️ Parallel jobs: ${j}"
 echo "⏱️ Total time: $((total_elapsed / 60))m $((total_elapsed % 60))s"
