@@ -13,7 +13,7 @@ export CFLAGS = -gdwarf-4
 override_dh_auto_configure:
 	mkdir -p $(CURDIR)/debian/build && \
 	cd $(CURDIR)/debian/build && \
-	cmake -DCMAKE_BUILD_TYPE=Release -DLIBBPF_EMBEDDED=on -D__LIB=lib -DCMAKE_INSTALL_PREFIX=/usr ../../ && \
+	cmake -DCMAKE_BUILD_TYPE=Release -DLIBBPF_EMBEDDED=on -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=/usr ../../ && \
 	make all
 
 override_dh_auto_install:
