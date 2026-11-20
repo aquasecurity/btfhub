@@ -110,13 +110,15 @@ function ctrlc() {
         fi
     done
 
-    rm -f "${basedir}"/*.btf
-
     exit 2
 }
 
 trap ctrlc SIGINT
 trap ctrlc SIGTERM
+
+# Jobs extract and minimize inside their own directory under work_dir
+work_dir="$(mktemp -d)" || exit 1
+trap 'rm -rf "${work_dir}"' EXIT
 
 # clean custom-archive directory
 find ./custom-archive -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} \;
@@ -126,58 +128,43 @@ process_btf_file() {
     local file="$1"
     local btfgen="$2"
     local obj_cmdline="$3"
+    local work_dir="$4"
 
     local dir
+    local out_dir
     local extracted
     local temp_dir
-    local original_dir
 
     dir="$(dirname "${file}")"
+    dir=${dir/\.\/archive\//}
+    out_dir="./custom-archive/${dir}"
 
-    # Create a temporary directory for this job to avoid conflicts
-    temp_dir="$(mktemp -d)"
-    original_dir="$(pwd)"
-
-    # Extract in temp directory
-    cd "${temp_dir}" || return 1
-    extracted="$(tar xvfJ "${original_dir}/${file}" 2> /dev/null)"
+    # Extract into this job's own directory: kernels with the same file name
+    # (e.g. one kernel in two Ubuntu releases) must not share a path
+    temp_dir="$(mktemp -d -p "${work_dir}")" || return 1
+    extracted="$(tar -C "${temp_dir}" -xvJf "${file}" 2> /dev/null)"
     local ret=$?
 
-    if [[ ${ret} -eq 0 && -f "${extracted}" ]]; then
-        cd "${original_dir}" || return 1
-
-        # Prepare output directory
-        dir=${dir/\.\/archive\//}
-        local out_dir="./custom-archive/${dir}"
-        mkdir -p "${out_dir}"
-
-        # Move extracted file to working directory and process
-        mv "${temp_dir}/${extracted}" "./${extracted}"
-
-        # Generate minimized BTF file
-        # shellcheck disable=SC2086
-        "${btfgen}" gen min_core_btf "${extracted}" "${out_dir}/${extracted}" ${obj_cmdline}
-        local btfgen_ret=$?
-
-        # Cleanup
-        rm -f "./${extracted}"
-
-        if [[ ${btfgen_ret} -eq 0 ]]; then
-            printf "[SUCCESS] %s\n" "${extracted}"
-            # Cleanup temp directory
-            rm -rf "${temp_dir}"
-            return 0
-        else
-            printf "[FAIL] %s\n" "${extracted}"
-            # Cleanup temp directory
-            rm -rf "${temp_dir}"
-            return 1
-        fi
-    else
-        cd "${original_dir}" || return 1
+    if [[ ${ret} -ne 0 || ! -f "${temp_dir}/${extracted}" ]]; then
         printf "[FAIL] %s (extraction failed)\n" "$(basename "${file}")"
-        # Cleanup temp directory
         rm -rf "${temp_dir}"
+        return 1
+    fi
+
+    mkdir -p "${out_dir}"
+
+    # Generate minimized BTF file
+    # shellcheck disable=SC2086
+    "${btfgen}" gen min_core_btf "${temp_dir}/${extracted}" "${out_dir}/${extracted}" ${obj_cmdline}
+    local btfgen_ret=$?
+
+    rm -rf "${temp_dir}"
+
+    if [[ ${btfgen_ret} -eq 0 ]]; then
+        printf "[SUCCESS] %s\n" "${extracted}"
+        return 0
+    else
+        printf "[FAIL] %s\n" "${extracted}"
         return 1
     fi
 }
@@ -234,7 +221,7 @@ for file in "${btf_files[@]}"; do
     done
 
     # Start new background job
-    process_btf_file "${file}" "${btfgen}" "${obj_cmdline}" &
+    process_btf_file "${file}" "${btfgen}" "${obj_cmdline}" "${work_dir}" &
     pid=$!
     background_pids+=("${pid}")
     ((job_count++))
