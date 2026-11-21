@@ -209,23 +209,10 @@ jobs:
           apt-get install -y gh
         shell: bash
       #
+      # btfhub only checks which files the archive has, so their contents are
+      # not downloaded: the sparse checkout fetches the tree and the README,
+      # and bring-names creates an empty file for each archive file
       - name: Checkout BTFHub Archive
-        if: inputs.dry-run != true
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          repository: ${{ env.ARCHIVE_REPO }}
-          persist-credentials: false
-          fetch-depth: 1
-          path: ./btfhub-archive
-          sparse-checkout: |
-            centos
-            debian
-            fedora
-            ol
-            ubuntu
-      #
-      - name: Checkout BTFHub Archive (dry-run)
-        if: inputs.dry-run == true
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.ARCHIVE_REPO }}
@@ -234,11 +221,11 @@ jobs:
           path: ./btfhub-archive
           sparse-checkout: README.md
       #
-      - name: Bring current BTFHub Archive
+      - name: Bring current BTFHub Archive file names
         if: inputs.dry-run != true
         run: |
           cd btfhub
-          make bring
+          make bring-names
         shell: bash
       #
       - name: Compile BTFHub Tool
@@ -283,7 +270,7 @@ jobs:
         if: inputs.dry-run != true
         run: |
           cd btfhub
-          make take
+          make take-new
       #
       - name: Commit, Push and Create PR for BTFHub Archive
         uses: ./btfhub/.github/actions/commit-push-and-pr

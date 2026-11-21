@@ -95,6 +95,12 @@ func processPackage(
 		log.Printf("SKIP: %s exists\n", btfTarName)
 		return nil
 	}
+	// A .failed file marks a kernel that is known not to yield a BTF file,
+	// so it is not downloaded again on every run
+	if !force && pkg.PackageFailed(p, workDir) {
+		log.Printf("SKIP: %s is marked as failed\n", p.BTFFilename())
+		return nil
+	}
 
 	// 1st job: Extract kernel vmlinux file
 
