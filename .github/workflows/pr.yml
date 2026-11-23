@@ -16,6 +16,7 @@ on:
       - "Makefile"
       - ".github/workflows/pr.yml"
       - ".github/actions/**"
+      - "3rdparty/**"
 
 concurrency:
   group: ${{ github.event.pull_request.number || github.ref }}
